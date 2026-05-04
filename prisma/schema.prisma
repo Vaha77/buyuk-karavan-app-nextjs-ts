@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  SELLER
+  VIEWER
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  BLOCKED
+}
+
+model User {
+  id        String     @id @default(cuid())
+  name      String
+  phone     String     @unique
+  password  String
+  role      Role       @default(VIEWER)
+  status    UserStatus @default(PENDING)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  category     String
+  basePriceUsd Float
+  publicMarkup Float    @default(15)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
