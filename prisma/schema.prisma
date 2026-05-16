@@ -33,12 +33,24 @@ model User {
 }
 
 model Product {
-  id           String   @id @default(cuid())
-  name         String
-  category     String
-  basePriceUsd Float
-  publicMarkup Float    @default(15)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  category  String
+
+  country   String
+  image     String
+  images    Json   // ✅ FIX
+
+  priceUsd  Float
+  priceUzs  Float
+
+  shortDesc String
+  fullDesc  String
+
+  rating    Float   @default(5)
+
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

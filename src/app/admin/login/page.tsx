@@ -68,7 +68,12 @@ const [showPassword, setShowPassword] = useState(false);
             Kirish
           </button>
         </div>
-
+<p className="mt-4 text-center text-sm text-slate-500">
+  Hali akkauntingiz yo‘qmi?{" "}
+  <a href="/admin/register" className="font-semibold text-blue-600">
+    Ro‘yxatdan o‘tish
+  </a>
+</p>
         {message && (
           <p className="mt-4 rounded-xl bg-red-50 p-3 text-center text-sm text-red-600">
             {message}

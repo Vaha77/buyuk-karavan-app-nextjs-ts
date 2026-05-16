@@ -27,6 +27,14 @@ export default function PendingUsers() {
 
     loadUsers();
   }
+  async function rejectUser(id: string) {
+  await fetch("/api/admin/reject-user", {
+    method: "POST",
+    body: JSON.stringify({ id }),
+  });
+
+  loadUsers();
+}
 
   useEffect(() => {
     loadUsers();
@@ -48,12 +56,21 @@ export default function PendingUsers() {
               <p className="mt-1 text-xs text-orange-600">{user.status}</p>
             </div>
 
-            <button
-              onClick={() => approveUser(user.id)}
-              className="rounded-xl bg-green-600 px-4 py-2 font-semibold text-white"
-            >
-              Tasdiqlash
-            </button>
+     <div className="flex gap-3">
+  <button
+    onClick={() => approveUser(user.id)}
+    className="rounded-xl bg-green-600 px-4 py-2 font-semibold text-white"
+  >
+    Tasdiqlash
+  </button>
+
+  <button
+    onClick={() => rejectUser(user.id)}
+    className="rounded-xl bg-red-600 px-4 py-2 font-semibold text-white"
+  >
+    Rad etish
+  </button>
+</div>
           </div>
         ))}
 

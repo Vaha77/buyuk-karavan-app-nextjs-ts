@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
   const [message, setMessage] = useState("");
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -24,10 +26,15 @@ export default function RegisterPage() {
 
     if (data.error) {
       setMessage(data.error);
-    } else {
-      setMessage("Ro‘yxatdan o‘tildi. Admin tasdiqlashini kuting.");
-      formElement.reset();
+      return;
     }
+
+    setMessage("Ro‘yxatdan o‘tildi. Admin tasdiqlashini kuting.");
+    formElement.reset();
+
+    setTimeout(() => {
+      router.push("/admin/login");
+    }, 1500);
   }
 
   return (
@@ -53,7 +60,7 @@ export default function RegisterPage() {
 
           <input
             name="phone"
-            placeholder="+998 99 365 23 04"
+            placeholder="+998 00 000 00 00"
             className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-blue-500"
           />
 
