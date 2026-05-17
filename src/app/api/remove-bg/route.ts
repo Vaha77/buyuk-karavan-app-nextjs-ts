@@ -9,15 +9,20 @@ export async function POST(req: NextRequest) {
     const imageRes = await fetch(imageUrl);
     const imageArrayBuffer = await imageRes.arrayBuffer();
 
-    // sharp bilan compress
-    const compressed = await sharp(Buffer.from(imageArrayBuffer))
+    // sharp bilan compress — to'g'ridan ArrayBuffer olamiz
+    const compressed = await sharp(new Uint8Array(imageArrayBuffer))
       .resize(1000, 1000, { fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 85 })
       .toBuffer();
 
-    // FormData uchun Blob
+    // ArrayBuffer ga o'tkazamiz
+    const compressedArrayBuffer = compressed.buffer.slice(
+      compressed.byteOffset,
+      compressed.byteOffset + compressed.byteLength
+    ) as ArrayBuffer;
+
     const formData = new FormData();
-    formData.append("image", new Blob([compressed], { type: "image/jpeg" }), "image.jpg");
+    formData.append("image", new Blob([compressedArrayBuffer], { type: "image/jpeg" }), "image.jpg");
     formData.append("bg.color", "ffffff");
 
     const res = await fetch("https://api.pixian.ai/api/v2/remove-background", {
@@ -35,7 +40,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: err }, { status: 500 });
     }
 
-    const resultBuffer = await res.arrayBuffer();
+    const resultArrayBuffer = await res.arrayBuffer();
     const fileName = `nobg-${Date.now()}.png`;
 
     const supabase = createClient(
@@ -45,8 +50,8 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabase.storage
       .from("Buyuk-karavan-app-admin")
-      .upload(fileName, new Blob([resultBuffer], { type: "image/png" }), { 
-        contentType: "image/png" 
+      .upload(fileName, new Blob([resultArrayBuffer], { type: "image/png" }), {
+        contentType: "image/png",
       });
 
     if (error) return Response.json({ error: error.message }, { status: 500 });
