@@ -8,26 +8,24 @@ export async function POST(req: NextRequest) {
 
     const imageRes = await fetch(imageUrl);
     const imageArrayBuffer = await imageRes.arrayBuffer();
-    const imageBuffer = Buffer.from(imageArrayBuffer);
 
-    const compressed = await sharp(imageBuffer)
+    // sharp bilan compress
+    const compressed = await sharp(Buffer.from(imageArrayBuffer))
       .resize(1000, 1000, { fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 85 })
       .toBuffer();
 
-    const uint8 = new Uint8Array(compressed.buffer, compressed.byteOffset, compressed.byteLength);
-    const imageBlob = new Blob([uint8], { type: "image/jpeg" });
-
+    // FormData uchun Blob
     const formData = new FormData();
-    formData.append("image", imageBlob, "image.jpg");
+    formData.append("image", new Blob([compressed], { type: "image/jpeg" }), "image.jpg");
     formData.append("bg.color", "ffffff");
 
     const res = await fetch("https://api.pixian.ai/api/v2/remove-background", {
       method: "POST",
       headers: {
-        "Authorization": "Basic " + Buffer.from(
+        "Authorization": "Basic " + btoa(
           `${process.env.PIXIAN_API_ID}:${process.env.PIXIAN_API_SECRET}`
-        ).toString("base64"),
+        ),
       },
       body: formData,
     });
@@ -37,8 +35,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: err }, { status: 500 });
     }
 
-    const resultArrayBuffer = await res.arrayBuffer();
-    const resultUint8 = new Uint8Array(resultArrayBuffer);
+    const resultBuffer = await res.arrayBuffer();
     const fileName = `nobg-${Date.now()}.png`;
 
     const supabase = createClient(
@@ -48,7 +45,9 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabase.storage
       .from("Buyuk-karavan-app-admin")
-      .upload(fileName, resultUint8, { contentType: "image/png" });
+      .upload(fileName, new Blob([resultBuffer], { type: "image/png" }), { 
+        contentType: "image/png" 
+      });
 
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
