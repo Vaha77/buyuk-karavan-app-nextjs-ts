@@ -7,15 +7,17 @@ export async function POST(req: NextRequest) {
     const { imageUrl } = await req.json();
 
     const imageRes = await fetch(imageUrl);
-    const imageBuffer = Buffer.from(await imageRes.arrayBuffer());
+    const imageArrayBuffer = await imageRes.arrayBuffer();
+    const imageBuffer = Buffer.from(imageArrayBuffer);
 
-    // Pixian ga yuborishdan oldin compress
+    // Compress qilish
     const compressed = await sharp(imageBuffer)
       .resize(1000, 1000, { fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 85 })
       .toBuffer();
 
-    const imageBlob = new Blob([compressed], { type: "image/jpeg" });
+    // Uint8Array ga o'tkazish
+    const imageBlob = new Blob([new Uint8Array(compressed)], { type: "image/jpeg" });
 
     const formData = new FormData();
     formData.append("image", imageBlob, "image.jpg");
@@ -37,8 +39,8 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: err }, { status: 500 });
     }
 
-    const resultBlob = await res.blob();
-    const buffer = Buffer.from(await resultBlob.arrayBuffer());
+    const resultArrayBuffer = await res.arrayBuffer();
+    const resultUint8Array = new Uint8Array(resultArrayBuffer);
     const fileName = `nobg-${Date.now()}.png`;
 
     const supabase = createClient(
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabase.storage
       .from("Buyuk-karavan-app-admin")
-      .upload(fileName, buffer, { contentType: "image/png" });
+      .upload(fileName, resultUint8Array, { contentType: "image/png" });
 
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
