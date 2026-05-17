@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
+import sharp from "sharp";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,11 +15,21 @@ export async function POST(req: NextRequest) {
 
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
-  const fileName = `${Date.now()}-${file.name.replace(/\s/g, "-")}`;
+
+  // Rasmni compress qilish
+  const compressed = await sharp(buffer)
+    .resize(1200, 1200, { 
+      fit: "inside",        // proporsiyani saqlaydi
+      withoutEnlargement: true // kichik rasmni kattalashtirmaydi
+    })
+    .webp({ quality: 82 }) // WebP format — JPEG/PNG dan 2-3x kichik
+    .toBuffer();
+
+  const fileName = `${Date.now()}-${file.name.replace(/\s/g, "-")}.webp`;
 
   const { error } = await supabase.storage
     .from("Buyuk-karavan-app-admin")
-    .upload(fileName, buffer, { contentType: file.type });
+    .upload(fileName, compressed, { contentType: "image/webp" });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
 

@@ -13,6 +13,7 @@ export default function RootLayout({
   return (
     <html lang="uz">
       <body>{children}</body>
+      
     </html>
   );
 }

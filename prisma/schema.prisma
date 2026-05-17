@@ -3,10 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 enum Role {
   SUPER_ADMIN
   ADMIN
@@ -22,35 +21,110 @@ enum UserStatus {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  name      String
-  phone     String     @unique
-  password  String
-  role      Role       @default(VIEWER)
-  status    UserStatus @default(PENDING)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id               String             @id @default(cuid())
+  name             String
+  phone            String             @unique
+  password         String
+  role             Role               @default(VIEWER)
+  status           UserStatus         @default(PENDING)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  kalkulyatorlar   KalkulyatorSession[]
 }
 
+// ─── KATEGORIYA ───────────────────────────
+model Kategoriya {
+  id          String      @id @default(cuid())
+  name        String      // "Kompressorlar", "Kondensatorlar"...
+  slug        String      @unique // "kompressor", "kondensator"
+  icon        String?     // emoji yoki icon nomi
+  createdAt   DateTime    @default(now())
+  mahsulotlar Mahsulot[]
+}
+
+// ─── MAHSULOT (har bir detal) ─────────────
+model Mahsulot {
+  id            String      @id @default(cuid())
+  name          String      // "DD 160", "FN 180", "Xueing BR+20PG"
+  model         String?     // "DD160", "FN180"
+  brend         String?     // "Xueing", "UCS", "Xitoy"
+  birlik        String      @default("dona") // "dona", "metr", "kg"
+  priceUsd      Float       // magazin narxi
+  image         String?
+  description   String?
+  isActive      Boolean     @default(true)
+  categoryId    String
+  category      Kategoriya  @relation(fields: [categoryId], references: [id])
+  createdAt     DateTime    @default(now())
+  kgPerMetr     Float?      @default(0)
+  updatedAt     DateTime    @updatedAt
+  komplektItemlar   KomplektItem[]
+  kalkulyatorItemlar KalkulyatorItem[]
+}
+
+// ─── KOMPLEKT (BR+20PG kabi to'liq agregat) ──
+model Komplekt {
+  id          String         @id @default(cuid())
+  name        String         // "BR+20PG Havo Agregat"
+  modelCode   String         // "BR+20PG"
+  image       String?
+  description String?
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  itemlar     KomplektItem[]
+}
+
+// ─── KOMPLEKT ICHIDAGI DETALLAR ───────────
+model KomplektItem {
+  id          String    @id @default(cuid())
+  komplektId  String
+  komplekt    Komplekt  @relation(fields: [komplektId], references: [id])
+  mahsulotId  String
+  mahsulot    Mahsulot  @relation(fields: [mahsulotId], references: [id])
+  miqdor      Int       @default(1)  // standart miqdor
+}
+
+// ─── KALKULYATOR SESSIYA ──────────────────
+model KalkulyatorSession {
+  id          String            @id @default(cuid())
+  mijozIsm    String
+  mijozTel    String
+  sotuvchiId  String
+  sotuvchi    User              @relation(fields: [sotuvchiId], references: [id])
+  jami        Float             // jami narx USD
+  yuborildi   Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  itemlar     KalkulyatorItem[]
+}
+
+// ─── KALKULYATOR ICHIDAGI DETALLAR ───────
+model KalkulyatorItem {
+  id          String             @id @default(cuid())
+  sessionId   String
+  session     KalkulyatorSession @relation(fields: [sessionId], references: [id])
+  mahsulotId  String
+  mahsulot    Mahsulot           @relation(fields: [mahsulotId], references: [id])
+  miqdor      Int                @default(1)
+  narxUsd     Float              // o'sha paytdagi narx (narx o'zgarsa ham saqlansin)
+}
+
+// ─── OMMAVIY MARKETPLACE MAHSULOT ────────
 model Product {
   id        String   @id @default(cuid())
   name      String
   category  String
-
-  country   String
+  tur       String   @default("oddiy")
+  birlik    String   @default("dona")
+  kgPerMetr Float?   @default(0)    // ← shu qatorni qo'shing
   image     String
-  images    Json   // ✅ FIX
-
+  images    Json
   priceUsd  Float
   priceUzs  Float
-
   shortDesc String
   fullDesc  String
-
-  rating    Float   @default(5)
-
-  isActive  Boolean @default(true)
-
+  rating    Float    @default(0)
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

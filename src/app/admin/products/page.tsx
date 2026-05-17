@@ -2,57 +2,75 @@
 
 import { useEffect, useState, useRef } from "react";
 
+type Kategoriya = { id: string; name: string; };
 type Product = {
-  id: string;
-  name: string;
-  category: string;
-  country: string;
-  image: string;
-  images: string[];
-  priceUsd: number;
-  priceUzs: number;
-  shortDesc: string;
-  rating: number;
+  id: string; name: string; category: string; tur: string;
+  birlik: string; kgPerMetr: number; image: string; images: string[];
+  priceUsd: number; priceUzs: number; shortDesc: string; fullDesc: string;
+  rating: number; isActive: boolean;
 };
 
 const emptyForm = {
-  name: "",
-  category: "",
-  country: "",
-  image: "",
-  images: [] as string[],
-  shortDesc: "",
-  fullDesc: "",
-  priceUsd: "",
-  rating: "",
+  name: "", category: "", tur: "oddiy", birlik: "dona",
+  kgPerMetr: "", image: "", images: [] as string[],
+  shortDesc: "", fullDesc: "", priceUsd: "",
 };
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [message, setMessage] = useState("");
+  const [kategoriyalar, setKategoriyalar] = useState<Kategoriya[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
-  const [viewer360, setViewer360] = useState<{ product: Product; index: number } | null>(null);
+  const [message, setMessage] = useState("");
+  const [showNewKat, setShowNewKat] = useState(false);
+  const [newKatName, setNewKatName] = useState("");
+  const [savingKat, setSavingKat] = useState(false);
+  const [search, setSearch] = useState("");
+  const [activeKat, setActiveKat] = useState("barchasi");
+  const [deleteModal, setDeleteModal] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const galleryRef = useRef<HTMLInputElement>(null);
 
   async function loadProducts() {
     const res = await fetch("/api/products");
-    const data = await res.json();
-    setProducts(data);
+    setProducts(await res.json());
   }
 
-  useEffect(() => { loadProducts(); }, []);
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  async function loadKategoriyalar() {
+    const res = await fetch("/api/kategoriya");
+    setKategoriyalar(await res.json());
   }
 
-  async function handleMainImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  useEffect(() => { loadProducts(); loadKategoriyalar(); }, []);
+
+  const filteredProducts = products.filter((p) => {
+    const matchKat = activeKat === "barchasi" || p.category === activeKat;
+    const matchSearch =
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.category.toLowerCase().includes(search.toLowerCase());
+    return matchKat && matchSearch;
+  });
+
+  function openAddForm() {
+    setEditProduct(null); setForm(emptyForm); setMessage(""); setShowForm(true);
+  }
+
+  function openEditForm(p: Product) {
+    setEditProduct(p);
+    setForm({
+      name: p.name, category: p.category, tur: p.tur, birlik: p.birlik,
+      kgPerMetr: p.kgPerMetr ? String(p.kgPerMetr) : "",
+      image: p.image, images: p.images || [],
+      shortDesc: p.shortDesc, fullDesc: p.fullDesc, priceUsd: String(p.priceUsd),
+    });
+    setMessage(""); setShowForm(true);
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
@@ -64,29 +82,11 @@ export default function ProductsPage() {
     setUploading(false);
   }
 
-  async function handleGalleryUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    setUploading(true);
-    const urls: string[] = [];
-    for (const file of files) {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (data.url) urls.push(data.url);
-    }
-    setForm((f) => ({ ...f, images: [...f.images, ...urls] }));
-    setUploading(false);
-  }
-
   async function handleAiAnalyze() {
-    if (!form.image) { setMessage("Avval asosiy rasmni yuklang ❗"); return; }
-    setAnalyzing(true);
-    setMessage("AI tahlil qilmoqda... 🤖");
+    if (!form.image) { setMessage("Avval rasm yuklang ❗"); return; }
+    setAnalyzing(true); setMessage("AI tahlil qilmoqda...");
     const res = await fetch("/api/ai-analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ imageUrl: form.image }),
     });
     const data = await res.json();
@@ -94,257 +94,412 @@ export default function ProductsPage() {
       setForm((f) => ({
         ...f,
         name: data.name || f.name,
-        category: data.category || f.category,
         shortDesc: data.shortDesc || f.shortDesc,
         fullDesc: data.fullDesc || f.fullDesc,
         priceUsd: data.priceUsd ? String(data.priceUsd) : f.priceUsd,
-        rating: data.rating ? String(data.rating) : f.rating,
       }));
-      setMessage("AI to'ldirdi ✅ — tekshirib saqlang");
-    } else {
-      setMessage("AI xato ❌");
-    }
+      setMessage("AI to'ldirdi ✅");
+    } else { setMessage("AI xato ❌"); }
     setAnalyzing(false);
   }
 
   async function handleRemoveBg() {
-    if (!form.image) { setMessage("Avval asosiy rasmni yuklang ❗"); return; }
-    setRemovingBg(true);
-    setMessage("Fon olib tashlanmoqda... ✂️");
+    if (!form.image) { setMessage("Avval rasm yuklang ❗"); return; }
+    setRemovingBg(true); setMessage("Fon olib tashlanmoqda...");
     const res = await fetch("/api/remove-bg", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ imageUrl: form.image }),
     });
     const data = await res.json();
-    if (data.url) {
-      setForm((f) => ({ ...f, image: data.url }));
-      setMessage("Fon olib tashlandi ✅");
-    } else {
-      setMessage("Xatolik ❌ " + data.error);
-    }
+    if (data.url) { setForm((f) => ({ ...f, image: data.url })); setMessage("Fon olib tashlandi ✅"); }
+    else { setMessage("Xatolik ❌"); }
     setRemovingBg(false);
   }
 
-  function openAddForm() {
-    setEditProduct(null);
-    setForm(emptyForm);
-    setMessage("");
-    setShowForm(true);
-  }
-
-  function openEditForm(product: Product) {
-    setEditProduct(product);
-    setForm({
-      name: product.name,
-      category: product.category,
-      country: product.country,
-      image: product.image,
-      images: product.images || [],
-      shortDesc: product.shortDesc,
-      fullDesc: "",
-      priceUsd: String(product.priceUsd),
-      rating: String(product.rating),
+  async function handleSaveKat() {
+    if (!newKatName.trim()) return;
+    setSavingKat(true);
+    const res = await fetch("/api/kategoriya", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newKatName }),
     });
-    setMessage("");
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const data = await res.json();
+    await loadKategoriyalar();
+    setForm((f) => ({ ...f, category: data.name }));
+    setNewKatName(""); setShowNewKat(false); setSavingKat(false);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit() {
     if (!form.name.trim()) { setMessage("Mahsulot nomi kiritilmagan ❗"); return; }
     if (!form.priceUsd) { setMessage("Narx kiritilmagan ❗"); return; }
-    if (!form.image) { setMessage("Asosiy rasm yuklanmagan ❗"); return; }
-
     const body = {
       ...(editProduct ? { id: editProduct.id } : {}),
-      name: form.name,
-      category: form.category,
-      country: form.country,
-      image: form.image,
-      images: form.images,
-      priceUsd: form.priceUsd,
-      shortDesc: form.shortDesc,
-      fullDesc: form.fullDesc,
-      rating: form.rating,
+      name: form.name, category: form.category, tur: form.tur,
+      birlik: form.birlik, kgPerMetr: form.kgPerMetr ? Number(form.kgPerMetr) : 0,
+      image: form.image, images: form.images,
+      priceUsd: form.priceUsd, shortDesc: form.shortDesc, fullDesc: form.fullDesc,
     };
     const res = await fetch("/api/products", {
       method: editProduct ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (res.ok) {
-      setMessage(editProduct ? "Yangilandi ✅" : "Qo'shildi ✅");
-      setForm(emptyForm);
-      setEditProduct(null);
-      setShowForm(false);
-      await loadProducts();
-    } else {
-      setMessage("Xatolik ❌");
-    }
+      setShowForm(false); setForm(emptyForm); setEditProduct(null);
+      setMessage(""); await loadProducts();
+    } else { setMessage("Xatolik ❌"); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("O'chirishni tasdiqlaysizmi?")) return;
-    const res = await fetch("/api/products", {
+  async function handleDelete() {
+    if (!deleteModal) return;
+    setDeleting(true);
+    await fetch("/api/products", {
       method: "DELETE",
-      body: JSON.stringify({ id }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: deleteModal.id }),
     });
-    if (res.ok) await loadProducts();
+    setDeleting(false);
+    setDeleteModal(null);
+    await loadProducts();
   }
+
+  const priceUzs = form.priceUsd ? (Number(form.priceUsd) * 12500).toLocaleString() : "0";
+  const trubaHisob = form.birlik === "kg" && form.kgPerMetr && form.priceUsd
+    ? (4 * Number(form.kgPerMetr) * Number(form.priceUsd)).toFixed(2) : null;
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Mahsulotlar</h1>
-        <button onClick={openAddForm} className="rounded-xl bg-slate-950 px-6 py-3 font-semibold text-white">
-          ➕ Yangi mahsulot
-        </button>
+    <div className="min-h-screen bg-gray-50">
+
+      {/* O'chirish modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-center w-12 h-12 bg-red-50 rounded-full mx-auto mb-4">
+              <span className="text-2xl">🗑️</span>
+            </div>
+            <h3 className="text-base font-bold text-gray-900 text-center mb-2">
+              O'chirishni tasdiqlang
+            </h3>
+            <p className="text-sm text-gray-500 text-center mb-1">
+              <span className="font-semibold text-gray-700">{deleteModal.name}</span>
+            </p>
+            <p className="text-xs text-gray-400 text-center mb-6">
+              Bu mahsulot o'chirilsa qaytarib bo'lmaydi!
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteModal(null)}
+                className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold"
+              >
+                Bekor
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-semibold disabled:opacity-50"
+              >
+                {deleting ? "O'chirilmoqda..." : "O'chirish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 py-3">
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-lg font-bold text-gray-900">Mahsulotlar</h1>
+          <button
+            onClick={openAddForm}
+            className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-semibold"
+          >
+            + Qo'shish
+          </button>
+        </div>
+        <div className="relative mb-2.5">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+          <input
+            type="text" value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Mahsulot qidirish..."
+            className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-400"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">✕</button>
+          )}
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          <button
+            onClick={() => setActiveKat("barchasi")}
+            className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap ${
+              activeKat === "barchasi" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            Barchasi ({products.length})
+          </button>
+          {kategoriyalar.map((k) => (
+            <button key={k.id} onClick={() => setActiveKat(k.name)}
+              className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap ${
+                activeKat === k.name ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500"
+              }`}
+            >
+              {k.name} ({products.filter((p) => p.category === k.name).length})
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* Form Modal */}
       {showForm && (
-        <div className="mb-8 rounded-3xl bg-white p-6 shadow-sm">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-xl font-bold">{editProduct ? "✏️ Tahrirlash" : "➕ Yangi mahsulot"}</h2>
-            <button onClick={() => setShowForm(false)} className="text-xl text-slate-400 hover:text-slate-700">✕</button>
-          </div>
-
-          <form onSubmit={handleSubmit}>
-            {/* Asosiy rasm */}
-            <div className="mb-4">
-              <p className="mb-2 text-sm font-semibold text-slate-600">📸 Asosiy rasm</p>
-              <div className="flex gap-3 items-start">
-                <div
-                  onClick={() => fileRef.current?.click()}
-                  className="flex h-32 w-32 flex-shrink-0 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 hover:border-slate-500 bg-slate-50"
-                >
-                  {form.image ? (
-                    <img src={form.image} className="h-full w-full rounded-2xl object-cover" />
-                  ) : (
-                    <span className="text-3xl">📷</span>
-                  )}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleMainImageUpload} />
-                  <button type="button" onClick={() => fileRef.current?.click()}
-                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50">
-                    {uploading ? "Yuklanmoqda..." : "📁 Rasm tanlash"}
-                  </button>
-                  <button type="button" onClick={handleAiAnalyze} disabled={analyzing || !form.image}
-                    className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
-                    {analyzing ? "Tahlil qilmoqda..." : "🤖 AI bilan to'ldirish"}
-                  </button>
-                  <button type="button" onClick={handleRemoveBg} disabled={removingBg || !form.image}
-                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-                    {removingBg ? "Olib tashlanmoqda..." : "✂️ Fonni olib tashlash"}
-                  </button>
-                </div>
-              </div>
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl overflow-hidden max-h-[95vh] flex flex-col">
+            <div className="flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-10 h-1 bg-gray-200 rounded-full"></div>
             </div>
-
-            {/* 360° rasmlar */}
-            <div className="mb-4">
-              <p className="mb-2 text-sm font-semibold text-slate-600">🌀 360° rasmlar (har tomondan)</p>
-              <div className="flex flex-wrap gap-2">
-                {form.images.map((url, i) => (
-                  <div key={i} className="relative">
-                    <img src={url} className="h-16 w-16 rounded-xl object-cover" />
-                    <button type="button"
-                      onClick={() => setForm((f) => ({ ...f, images: f.images.filter((_, j) => j !== i) }))}
-                      className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white">✕</button>
-                  </div>
-                ))}
-                <div onClick={() => galleryRef.current?.click()}
-                  className="flex h-16 w-16 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-slate-300 hover:border-slate-500 text-2xl text-slate-400">+</div>
-                <input ref={galleryRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
-              </div>
-              {form.images.length > 0 && (
-                <p className="mt-1 text-xs text-slate-400">{form.images.length} ta rasm — 360° viewer ishlaydi</p>
-              )}
-            </div>
-
-            {/* Maydonlar */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <input name="name" value={form.name} onChange={handleChange} placeholder="Mahsulot nomi" className="rounded-xl border border-slate-300 p-3" />
-              <input name="category" value={form.category} onChange={handleChange} placeholder="Kategoriya" className="rounded-xl border border-slate-300 p-3" />
-              <input name="country" value={form.country} onChange={handleChange} placeholder="Davlat: Xitoy, Germaniya..." className="rounded-xl border border-slate-300 p-3" />
-              <input name="priceUsd" type="number" value={form.priceUsd} onChange={handleChange} placeholder="Narx USD" className="rounded-xl border border-slate-300 p-3" />
-              <input name="shortDesc" value={form.shortDesc} onChange={handleChange} placeholder="Qisqa ma'lumot" className="rounded-xl border border-slate-300 p-3 md:col-span-2" />
-              <textarea name="fullDesc" value={form.fullDesc} onChange={handleChange} placeholder="To'liq ma'lumot" className="min-h-28 rounded-xl border border-slate-300 p-3 md:col-span-2" />
-              <input name="rating" type="number" step="0.1" value={form.rating} onChange={handleChange} placeholder="Rating: 4.9" className="rounded-xl border border-slate-300 p-3" />
-            </div>
-
-            <div className="mt-5 flex gap-3">
-              <button type="submit" className="rounded-xl bg-slate-950 px-6 py-3 font-semibold text-white">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+              <h2 className="text-base font-bold text-gray-900">
+                {editProduct ? "Tahrirlash" : "Yangi mahsulot"}
+              </h2>
+              <button onClick={handleSubmit}
+                className="bg-gray-900 text-white px-4 py-1.5 rounded-xl text-sm font-semibold">
                 {editProduct ? "Saqlash" : "Qo'shish"}
               </button>
-              <button type="button" onClick={() => setShowForm(false)} className="rounded-xl border border-slate-300 px-6 py-3 font-semibold text-slate-600">
-                Bekor qilish
-              </button>
             </div>
 
-            {message && <p className="mt-4 text-sm font-medium text-slate-700">{message}</p>}
-          </form>
+            <div className="overflow-y-auto flex-1">
+              <div className="px-4 pt-4 pb-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Mahsulot turi</p>
+                <div className="flex gap-2">
+                  {["oddiy", "komplekt"].map((t) => (
+                    <button key={t} onClick={() => setForm((f) => ({ ...f, tur: t }))}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${
+                        form.tur === t ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
+                      }`}>
+                      {t === "oddiy" ? "Oddiy mahsulot" : "Komplekt"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative mx-4 rounded-2xl overflow-hidden cursor-pointer"
+                style={{ height: 180, background: "linear-gradient(135deg, #e8ede9, #dde8de)" }}
+                onClick={() => fileRef.current?.click()}>
+                {form.image ? (
+                  <img src={form.image} alt="" className="w-full h-full object-contain" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                    <span className="text-4xl">📷</span>
+                    <p className="text-sm text-gray-500 font-medium">Rasm yuklash</p>
+                  </div>
+                )}
+                {form.image && <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />}
+                {form.name && (
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <p className="text-white font-semibold text-sm drop-shadow">{form.name}</p>
+                    <p className="text-white/80 text-xs">{form.priceUsd ? `$${form.priceUsd}` : ""} · {form.birlik}</p>
+                  </div>
+                )}
+                <div className="absolute top-3 right-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={handleAiAnalyze} disabled={analyzing || !form.image}
+                    className="bg-white/90 backdrop-blur text-blue-600 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50">
+                    {analyzing ? "..." : "🤖 AI"}
+                  </button>
+                  <button onClick={handleRemoveBg} disabled={removingBg || !form.image}
+                    className="bg-white/90 backdrop-blur text-green-600 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50">
+                    {removingBg ? "..." : "✂️ Fon"}
+                  </button>
+                </div>
+                {uploading && (
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <p className="text-white font-semibold text-sm">Yuklanmoqda...</p>
+                  </div>
+                )}
+              </div>
+
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              {message && <p className="mx-4 mt-2 text-xs font-medium text-gray-500">{message}</p>}
+
+              <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Mahsulot nomi</p>
+                  <input type="text" value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Masalan: MisTruba F 54"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Kategoriya</p>
+                  <select value={form.category}
+                    onChange={(e) => {
+                      if (e.target.value === "__new__") setShowNewKat(true);
+                      else setForm((f) => ({ ...f, category: e.target.value }));
+                    }}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+                    <option value="">— Tanlang —</option>
+                    {kategoriyalar.map((k) => (
+                      <option key={k.id} value={k.name}>{k.name}</option>
+                    ))}
+                    <option value="__new__">＋ Yangi kategoriya</option>
+                  </select>
+                  {showNewKat && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl flex gap-2">
+                      <input type="text" value={newKatName}
+                        onChange={(e) => setNewKatName(e.target.value)}
+                        placeholder="Kategoriya nomi..."
+                        className="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
+                        autoFocus onKeyDown={(e) => e.key === "Enter" && handleSaveKat()} />
+                      <button onClick={handleSaveKat} disabled={savingKat}
+                        className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-semibold">
+                        {savingKat ? "..." : "Saqlash"}
+                      </button>
+                      <button onClick={() => setShowNewKat(false)} className="text-gray-400 px-2">✕</button>
+                    </div>
+                  )}
+                </div>
+
+                {form.tur === "oddiy" && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Birlik</p>
+                    <div className="flex gap-2">
+                      {[{ val: "dona", label: "Dona" }, { val: "kg", label: "Kg" }, { val: "metr", label: "Metr" }].map((b) => (
+                        <button key={b.val}
+                          onClick={() => setForm((f) => ({ ...f, birlik: b.val, kgPerMetr: "" }))}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${
+                            form.birlik === b.val ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
+                          }`}>
+                          {b.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {form.birlik === "kg" && form.tur === "oddiy" && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                    <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">1 metrda og'irligi</p>
+                    <div className="flex items-center gap-2">
+                      <input type="number" value={form.kgPerMetr}
+                        onChange={(e) => setForm((f) => ({ ...f, kgPerMetr: e.target.value }))}
+                        placeholder="0.000"
+                        className="flex-1 border border-blue-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none" />
+                      <span className="text-sm text-gray-500 font-medium flex-shrink-0">kg/metr</span>
+                    </div>
+                    <p className="text-xs text-blue-500 mt-1.5">F-54 = 5.300 · F-42 = 3.800 · F-22 = 1.700</p>
+                    {trubaHisob && (
+                      <div className="mt-2 pt-2 border-t border-blue-200 flex justify-between items-center">
+                        <p className="text-xs text-blue-500">4m × {form.kgPerMetr}kg × ${form.priceUsd || 0}</p>
+                        <p className="text-sm font-bold text-blue-700">${trubaHisob}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                    Narx (USD) — 1 {form.birlik} uchun
+                  </p>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">$</span>
+                    <input type="number" value={form.priceUsd}
+                      onChange={(e) => setForm((f) => ({ ...f, priceUsd: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-full border border-gray-200 rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none focus:border-gray-400" />
+                  </div>
+                  {form.priceUsd && <p className="text-xs text-gray-400 mt-1">{priceUzs} so'm</p>}
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Qisqa ma'lumot</p>
+                  <input type="text" value={form.shortDesc}
+                    onChange={(e) => setForm((f) => ({ ...f, shortDesc: e.target.value }))}
+                    placeholder="Bir qator tavsif..."
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Batafsil ma'lumot</p>
+                  <textarea value={form.fullDesc}
+                    onChange={(e) => setForm((f) => ({ ...f, fullDesc: e.target.value }))}
+                    placeholder="To'liq texnik tavsif..." rows={4}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 resize-none" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* 360° Modal */}
-      {viewer360 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6">
-            <button onClick={() => setViewer360(null)} className="absolute right-4 top-4 text-2xl text-slate-400 hover:text-slate-700">✕</button>
-            <h3 className="mb-4 text-lg font-bold">🌀 360° Ko'rinish</h3>
-            <img src={viewer360.product.images[viewer360.index]} className="w-full rounded-2xl object-contain" style={{ maxHeight: 350 }} />
-            <div className="mt-4 flex items-center justify-between">
-              <button onClick={() => setViewer360((v) => v && { ...v, index: (v.index - 1 + v.product.images.length) % v.product.images.length })}
-                className="rounded-xl bg-slate-100 px-5 py-2 font-bold hover:bg-slate-200">◀</button>
-              <span className="text-sm text-slate-500">{viewer360.index + 1} / {viewer360.product.images.length}</span>
-              <button onClick={() => setViewer360((v) => v && { ...v, index: (v.index + 1) % v.product.images.length })}
-                className="rounded-xl bg-slate-100 px-5 py-2 font-bold hover:bg-slate-200">▶</button>
-            </div>
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-              {viewer360.product.images.map((url, i) => (
-                <img key={i} src={url} onClick={() => setViewer360((v) => v && { ...v, index: i })}
-                  className={`h-14 w-14 flex-shrink-0 cursor-pointer rounded-xl object-cover border-2 ${viewer360.index === i ? "border-slate-900" : "border-transparent"}`} />
+      {/* PRODUCTS LIST */}
+      <div className="p-4">
+        {filteredProducts.length === 0 ? (
+          <div className="text-center py-20">
+            <p className="text-4xl mb-3">{search ? "🔍" : "📦"}</p>
+            <p className="text-gray-400 font-medium">
+              {search ? `"${search}" topilmadi` : "Hali mahsulot yo'q"}
+            </p>
+            {!search && (
+              <button onClick={openAddForm} className="mt-3 text-blue-600 text-sm font-semibold">
+                Birinchi mahsulotni qo'shing
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <p className="text-xs text-gray-400 mb-3">{filteredProducts.length} ta mahsulot</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {filteredProducts.map((p) => (
+                <div key={p.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                  <div className="relative h-36 bg-gradient-to-br from-gray-50 to-gray-100">
+                    {p.image ? (
+                      <img src={p.image} alt={p.name} className="w-full h-full object-contain p-2" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-3xl">📦</div>
+                    )}
+                    <span className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      p.tur === "komplekt" ? "bg-purple-100 text-purple-700"
+                      : p.birlik === "kg" ? "bg-orange-50 text-orange-600"
+                      : p.birlik === "metr" ? "bg-green-50 text-green-600"
+                      : "bg-blue-50 text-blue-600"
+                    }`}>
+                      {p.tur === "komplekt" ? "Komplekt" : p.birlik}
+                    </span>
+                    {p.kgPerMetr > 0 && (
+                      <span className="absolute bottom-2 right-2 text-xs bg-black/50 text-white px-2 py-0.5 rounded-full">
+                        {p.kgPerMetr} kg/m
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <p className="text-xs text-gray-400 truncate mb-0.5">{p.category || "—"}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate mb-1">{p.name}</p>
+                    <p className="text-sm font-bold text-gray-900">
+                      ${p.birlik === "kg" && p.kgPerMetr > 0
+                        ? (4 * p.kgPerMetr * p.priceUsd).toFixed(2)
+                        : p.priceUsd}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {p.birlik === "kg" && p.kgPerMetr > 0
+                        ? `4m uchun · $${p.priceUsd}/kg`
+                        : `${p.priceUzs.toLocaleString()} so'm`}
+                    </p>
+                    <div className="flex gap-1.5 mt-3">
+                      <button onClick={() => openEditForm(p)}
+                        className="flex-1 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold">
+                        ✏️ Tahrir
+                      </button>
+                      <button onClick={() => setDeleteModal(p)}
+                        className="flex-1 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs font-semibold">
+                        🗑️ O'chir
+                      </button>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mahsulotlar */}
-      <div className="grid gap-5 md:grid-cols-3">
-        {products.map((product) => (
-          <div key={product.id} className="flex flex-col rounded-3xl bg-white p-4 shadow-sm">
-            <div className="relative">
-              {product.image ? (
-                <img src={product.image} alt={product.name} className="h-48 w-full rounded-2xl bg-slate-100 object-cover" />
-              ) : (
-                <div className="flex h-48 w-full items-center justify-center rounded-2xl bg-slate-100 text-slate-400">Rasm yo'q</div>
-              )}
-              {product.images?.length > 0 && (
-                <button onClick={() => setViewer360({ product, index: 0 })}
-                  className="absolute bottom-2 right-2 rounded-xl bg-black/60 px-3 py-1 text-xs font-semibold text-white hover:bg-black/80">
-                  🌀 360°
-                </button>
-              )}
-            </div>
-            <div className="mt-4 flex flex-1 flex-col">
-              <p className="text-xs font-semibold text-blue-600">{product.country || "—"}</p>
-              <h3 className="mt-1 font-bold">{product.name || "Nomsiz"}</h3>
-              <p className="text-sm text-slate-500 line-clamp-2">{product.shortDesc}</p>
-              <div className="mt-3">
-                <p className="font-bold text-slate-900">${product.priceUsd}</p>
-                <p className="text-sm text-slate-500">{product.priceUzs.toLocaleString()} so'm</p>
-              </div>
-              <p className="mt-2 text-sm">⭐ {product.rating}</p>
-              <div className="mt-4 flex gap-2">
-                <button onClick={() => openEditForm(product)} className="flex-1 rounded-xl border border-slate-300 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">✏️ Tahrirlash</button>
-                <button onClick={() => handleDelete(product.id)} className="flex-1 rounded-xl bg-red-500 py-2 text-sm font-semibold text-white hover:bg-red-600">🗑️ O'chirish</button>
-              </div>
-            </div>
-          </div>
-        ))}
+          </>
+        )}
       </div>
     </div>
   );

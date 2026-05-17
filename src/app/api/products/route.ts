@@ -1,5 +1,7 @@
 import { prisma } from "../../../lib/prisma";
 
+const KURS = 12500;
+
 export async function GET() {
   const products = await prisma.product.findMany({
     orderBy: { createdAt: "desc" },
@@ -9,21 +11,22 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const kurs = 12500;
 
   const product = await prisma.product.create({
     data: {
-      name: String(body.name),
-      category: String(body.category),
-      country: String(body.country),
-      image: String(body.image),
-      images: body.images || [],
-      priceUsd: Number(body.priceUsd),
-      priceUzs: Number(body.priceUsd) * kurs,
-      shortDesc: String(body.shortDesc),
-      fullDesc: String(body.fullDesc),
-      rating: Number(body.rating || 5),
-      isActive: true,
+      name:      String(body.name),
+      category:  String(body.category || ""),
+      tur:       String(body.tur || "oddiy"),
+      birlik:    String(body.birlik || "dona"),
+      kgPerMetr: Number(body.kgPerMetr || 0),
+      image:     String(body.image || ""),
+      images:    body.images || [],
+      priceUsd:  Number(body.priceUsd || 0),
+      priceUzs:  Number(body.priceUsd || 0) * KURS,
+      shortDesc: String(body.shortDesc || ""),
+      fullDesc:  String(body.fullDesc || ""),
+      rating:    0,
+      isActive:  true,
     },
   });
 
@@ -32,21 +35,21 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   const body = await req.json();
-  const kurs = 12500;
 
   const product = await prisma.product.update({
     where: { id: body.id },
     data: {
-      name: String(body.name),
-      category: String(body.category),
-      country: String(body.country),
-      image: String(body.image),
-      images: body.images || [],
-      priceUsd: Number(body.priceUsd),
-      priceUzs: Number(body.priceUsd) * kurs,
-      shortDesc: String(body.shortDesc),
-      fullDesc: String(body.fullDesc),
-      rating: Number(body.rating || 5),
+      name:      String(body.name),
+      category:  String(body.category || ""),
+      tur:       String(body.tur || "oddiy"),
+      birlik:    String(body.birlik || "dona"),
+      kgPerMetr: Number(body.kgPerMetr || 0),
+      image:     String(body.image || ""),
+      images:    body.images || [],
+      priceUsd:  Number(body.priceUsd || 0),
+      priceUzs:  Number(body.priceUsd || 0) * KURS,
+      shortDesc: String(body.shortDesc || ""),
+      fullDesc:  String(body.fullDesc || ""),
     },
   });
 

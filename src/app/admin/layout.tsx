@@ -115,7 +115,13 @@ export default function AdminLayout({
               >
                 Foydalanuvchilar
               </Link>
-
+<Link
+  onClick={() => setOpen(false)}
+  href="/admin/kalkulatsiya"
+  className="rounded-xl px-4 py-3 hover:bg-white/10"
+>
+  Kalkulatsiya
+</Link>
               <Link
                 onClick={() => setOpen(false)}
                 href="/admin/pending"
@@ -123,6 +129,7 @@ export default function AdminLayout({
               >
                 Tasdiq kutayotganlar
               </Link>
+              
             </>
           )}
         </nav>
