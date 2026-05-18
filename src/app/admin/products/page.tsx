@@ -45,7 +45,6 @@ export default function ProductsPage() {
   useEffect(() => {
     loadProducts();
     loadKategoriyalar();
-
     fetch("https://cbu.uz/uz/arkhiv-kursov-valyut/json/USD/")
       .then((r) => r.json())
       .then((data) => {
@@ -53,7 +52,6 @@ export default function ProductsPage() {
         if (data?.[1]?.Rate) setKechakiKurs(Number(data[1].Rate));
       })
       .catch(() => {});
-
     const interval = setInterval(() => {
       const hozir = new Date();
       const format = hozir.toLocaleString("uz-UZ", {
@@ -62,7 +60,6 @@ export default function ProductsPage() {
       });
       setSana(format);
     }, 1000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -254,9 +251,7 @@ export default function ProductsPage() {
                     </span>
                   )}
                 </div>
-                {sana && (
-                  <p className="text-xs text-gray-400">{sana}</p>
-                )}
+                {sana && <p className="text-xs text-gray-400">{sana}</p>}
               </div>
             )}
           </div>
@@ -506,7 +501,7 @@ export default function ProductsPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {filteredProducts.map((p) => (
                 <div key={p.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-                  <div className="relative h-36 bg-gradient-to-br from-gray-50 to-gray-100">
+                  <div className="relative h-28 bg-gradient-to-br from-gray-50 to-gray-100">
                     {p.image ? (
                       <img src={p.image} alt={p.name} className="w-full h-full object-contain p-2" />
                     ) : (
@@ -528,7 +523,7 @@ export default function ProductsPage() {
                   </div>
                   <div className="p-3">
                     <p className="text-xs text-gray-400 truncate mb-0.5">{p.category || "—"}</p>
-                    <p className="text-sm font-semibold text-gray-900 truncate mb-1">{p.name}</p>
+                    <p className="text-sm font-semibold text-gray-900 mb-1 leading-snug">{p.name}</p>
                     <p className="text-sm font-bold text-gray-900">
                       ${p.birlik === "kg" && p.kgPerMetr > 0
                         ? (4 * p.kgPerMetr * p.priceUsd).toFixed(2)
