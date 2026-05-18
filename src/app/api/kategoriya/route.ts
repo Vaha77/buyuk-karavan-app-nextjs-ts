@@ -13,7 +13,19 @@ export async function GET() {
     orderBy: { createdAt: "asc" },
     include: { _count: { select: { mahsulotlar: true } } },
   });
-  return Response.json(kategoriyalar);
+
+  const products = await prisma.product.findMany({
+    select: { category: true },
+  });
+
+  const result = kategoriyalar.map((k) => ({
+    ...k,
+    _count: {
+      mahsulotlar: products.filter((p) => p.category === k.name).length,
+    },
+  }));
+
+  return Response.json(result);
 }
 
 export async function POST(req: Request) {
