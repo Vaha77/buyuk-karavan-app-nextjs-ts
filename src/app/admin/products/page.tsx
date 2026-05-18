@@ -37,6 +37,8 @@ export default function ProductsPage() {
   const [kurs, setKurs] = useState<number>(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const sotishKursi = kurs > 0 ? kurs + 1000 : 0;
+
   useEffect(() => {
     loadProducts();
     loadKategoriyalar();
@@ -146,7 +148,9 @@ export default function ProductsPage() {
     if (saving) return;
     setSaving(true);
     setMessage("Saqlanmoqda...");
-    const priceUzsHisob = Math.round(Number(form.priceUsd) * kurs);
+    const priceUzsHisob = sotishKursi > 0
+      ? Math.round(Number(form.priceUsd) * sotishKursi)
+      : Math.round(Number(form.priceUsd) * 12500);
     const body = {
       ...(editProduct ? { id: editProduct.id } : {}),
       name: form.name, category: form.category, tur: form.tur,
@@ -181,9 +185,9 @@ export default function ProductsPage() {
     await loadProducts();
   }
 
-  const priceUzs = form.priceUsd
-    ? Math.round(Number(form.priceUsd) * kurs).toLocaleString()
-    : "0";
+  const priceUzs = form.priceUsd && sotishKursi > 0
+    ? Math.round(Number(form.priceUsd) * sotishKursi).toLocaleString()
+    : "—";
 
   const trubaHisob = form.birlik === "kg" && form.kgPerMetr && form.priceUsd
     ? (4 * Number(form.kgPerMetr) * Number(form.priceUsd)).toFixed(2) : null;
@@ -231,9 +235,11 @@ export default function ProductsPage() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="text-lg font-bold text-gray-900">Mahsulotlar</h1>
-            <p className="text-xs text-gray-400">
-              Kurs: {kurs.toLocaleString()} so'm
-            </p>
+            {kurs > 0 && (
+              <p className="text-xs text-gray-400">
+                Kurs: {kurs.toLocaleString()} + 1 000 = {sotishKursi.toLocaleString()} so'm
+              </p>
+            )}
           </div>
           <button
             onClick={openAddForm}
@@ -443,9 +449,9 @@ export default function ProductsPage() {
                       placeholder="0.00"
                       className="w-full border border-gray-200 rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none focus:border-gray-400" />
                   </div>
-                  {form.priceUsd && (
+                  {form.priceUsd && sotishKursi > 0 && (
                     <p className="text-xs text-gray-400 mt-1">
-                      {priceUzs} so'm · Kurs: {kurs.toLocaleString()} so'm
+                      {priceUzs} so'm · Kurs: {kurs.toLocaleString()} + 1 000 = {sotishKursi.toLocaleString()} so'm
                     </p>
                   )}
                 </div>
