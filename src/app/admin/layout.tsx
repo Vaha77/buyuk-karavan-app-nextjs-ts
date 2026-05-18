@@ -46,13 +46,13 @@ export default function AdminLayout({
     { href: "/admin/products", label: "Mahsulotlar", show: true },
     { href: "/admin/users", label: "Foydalanuvchilar", show: isSuperAdmin },
     { href: "/admin/kategoriya", label: "Kategoriyalar", show: isSuperAdmin },
+    { href: "/admin/kassa", label: "Kassa", show: isSuperAdmin },
     { href: "/admin/kalkulatsiya", label: "Kalkulatsiya", show: isSuperAdmin },
     { href: "/admin/pending", label: "Tasdiq kutayotganlar", show: isSuperAdmin },
   ];
 
   return (
     <div className="min-h-screen bg-slate-100 lg:flex">
-      {/* Mobile Header */}
       <header className="sticky top-0 z-40 flex items-center justify-between bg-white px-4 py-3 shadow-sm lg:hidden">
         <div>
           <p className="text-xs font-semibold text-blue-600">BUYUK KARAVAN</p>
@@ -66,7 +66,6 @@ export default function AdminLayout({
         </button>
       </header>
 
-      {/* Overlay */}
       {open && (
         <div
           onClick={() => setOpen(false)}
@@ -74,13 +73,11 @@ export default function AdminLayout({
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`fixed left-0 top-0 z-50 flex h-screen w-72 flex-col bg-slate-950 p-5 text-white transition-transform duration-300 lg:sticky lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Logo */}
         <div className="mb-8 rounded-2xl bg-white/10 p-4">
           <p className="text-xs font-semibold text-blue-300">BUYUK KARAVAN</p>
           <h2 className="text-2xl font-bold">Admin Panel</h2>
@@ -92,7 +89,6 @@ export default function AdminLayout({
           )}
         </div>
 
-        {/* Nav */}
         <nav className="grid gap-1">
           {navLinks.map((link) =>
             link.show ? (
@@ -110,7 +106,6 @@ export default function AdminLayout({
           )}
         </nav>
 
-        {/* Logout */}
         <button
           onClick={handleLogout}
           className="mt-auto rounded-xl bg-red-600 px-4 py-3 font-semibold text-white transition hover:bg-red-700"
@@ -119,7 +114,6 @@ export default function AdminLayout({
         </button>
       </aside>
 
-      {/* Main */}
       <main className="flex-1 p-4 md:p-6 lg:p-8">
         <div className="mx-auto max-w-7xl">{children}</div>
       </main>
