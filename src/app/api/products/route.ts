@@ -2,8 +2,12 @@ import { prisma } from "../../../lib/prisma";
 
 const KURS = 12500;
 
-export async function GET() {
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const category = searchParams.get("category");
+
   const products = await prisma.product.findMany({
+    where: category ? { category } : {},
     orderBy: { createdAt: "desc" },
   });
   return Response.json(products);
@@ -11,7 +15,6 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const body = await req.json();
-
   const product = await prisma.product.create({
     data: {
       name:      String(body.name),
@@ -29,13 +32,11 @@ export async function POST(req: Request) {
       isActive:  true,
     },
   });
-
   return Response.json(product);
 }
 
 export async function PUT(req: Request) {
   const body = await req.json();
-
   const product = await prisma.product.update({
     where: { id: body.id },
     data: {
@@ -52,7 +53,6 @@ export async function PUT(req: Request) {
       fullDesc:  String(body.fullDesc || ""),
     },
   });
-
   return Response.json(product);
 }
 
