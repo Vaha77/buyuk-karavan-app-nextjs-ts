@@ -35,19 +35,35 @@ export default function ProductsPage() {
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [kurs, setKurs] = useState<number>(0);
+  const [kechakiKurs, setKechakiKurs] = useState<number>(0);
+  const [sana, setSana] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const sotishKursi = kurs > 0 ? kurs + 1000 : 0;
+  const kursOzgarish = kurs > 0 && kechakiKurs > 0 ? kurs - kechakiKurs : 0;
 
   useEffect(() => {
     loadProducts();
     loadKategoriyalar();
+
     fetch("https://cbu.uz/uz/arkhiv-kursov-valyut/json/USD/")
       .then((r) => r.json())
       .then((data) => {
         if (data?.[0]?.Rate) setKurs(Number(data[0].Rate));
+        if (data?.[1]?.Rate) setKechakiKurs(Number(data[1].Rate));
       })
       .catch(() => {});
+
+    const interval = setInterval(() => {
+      const hozir = new Date();
+      const format = hozir.toLocaleString("uz-UZ", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+      });
+      setSana(format);
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   async function loadProducts() {
@@ -223,9 +239,25 @@ export default function ProductsPage() {
           <div>
             <h1 className="text-lg font-bold text-gray-900">Mahsulotlar</h1>
             {kurs > 0 && (
-              <p className="text-xs text-gray-400">
-                Kurs: {kurs.toLocaleString()} + 1 000 = {sotishKursi.toLocaleString()} so'm
-              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1 flex-wrap">
+                  <p className="text-xs text-gray-500">
+                    {kurs.toLocaleString()} + 1 000 =
+                    <span className="font-bold text-gray-800"> {sotishKursi.toLocaleString()} so'm</span>
+                  </p>
+                  {kechakiKurs > 0 && (
+                    <span className={`text-xs font-bold flex items-center gap-0.5 ${
+                      kursOzgarish >= 0 ? "text-green-500" : "text-red-500"
+                    }`}>
+                      {kursOzgarish >= 0 ? "↑" : "↓"}
+                      {Math.abs(kursOzgarish).toFixed(1)}
+                    </span>
+                  )}
+                </div>
+                {sana && (
+                  <p className="text-xs text-gray-400">{sana}</p>
+                )}
+              </div>
             )}
           </div>
           <button onClick={openAddForm}
