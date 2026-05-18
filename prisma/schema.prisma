@@ -33,6 +33,7 @@ model User {
   kalkulyatorlar   KalkulyatorSession[]
   salesLimit    Float?   // null = limitsiz
   tolovlar      Tolov[]
+  hisoblar    Hisob[]
 }
 
 // ─── KATEGORIYA ───────────────────────────
@@ -154,4 +155,28 @@ model Tolov {
   tolovTuri String   @default("Naqd")
   izoh      String?
   createdAt DateTime @default(now())
+}
+model Hisob {
+  id          String      @id @default(cuid())
+  mijozIsm    String
+  mijozTel    String
+  brend       String
+  model       String
+  foiz        Float       @default(0)
+  tanNarxi    Float       @default(0)
+  jamiNarx    Float       @default(0)
+  sotuvchiId  String
+  sotuvchi    User        @relation(fields: [sotuvchiId], references: [id])
+  qismlar     HisobQism[]
+  createdAt   DateTime    @default(now())
+}
+
+model HisobQism {
+  id        String  @id @default(cuid())
+  hisobId   String
+  hisob     Hisob   @relation(fields: [hisobId], references: [id])
+  nom       String
+  mahsulot  String
+  miqdor    Int     @default(1)
+  narx      Float
 }
