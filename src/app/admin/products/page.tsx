@@ -148,16 +148,13 @@ export default function ProductsPage() {
     if (saving) return;
     setSaving(true);
     setMessage("Saqlanmoqda...");
-    const priceUzsHisob = sotishKursi > 0
-      ? Math.round(Number(form.priceUsd) * sotishKursi)
-      : Math.round(Number(form.priceUsd) * 12500);
     const body = {
       ...(editProduct ? { id: editProduct.id } : {}),
       name: form.name, category: form.category, tur: form.tur,
       birlik: form.birlik, kgPerMetr: form.kgPerMetr ? Number(form.kgPerMetr) : 0,
       image: form.image, images: form.images,
       priceUsd: form.priceUsd,
-      priceUzs: priceUzsHisob,
+      priceUzs: 0,
       shortDesc: form.shortDesc, fullDesc: form.fullDesc,
     };
     const res = await fetch("/api/products", {
@@ -195,34 +192,24 @@ export default function ProductsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* O'chirish modal */}
       {deleteModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <div className="flex items-center justify-center w-12 h-12 bg-red-50 rounded-full mx-auto mb-4">
               <span className="text-2xl">🗑️</span>
             </div>
-            <h3 className="text-base font-bold text-gray-900 text-center mb-2">
-              O'chirishni tasdiqlang
-            </h3>
+            <h3 className="text-base font-bold text-gray-900 text-center mb-2">O'chirishni tasdiqlang</h3>
             <p className="text-sm text-gray-500 text-center mb-1">
               <span className="font-semibold text-gray-700">{deleteModal.name}</span>
             </p>
-            <p className="text-xs text-gray-400 text-center mb-6">
-              Bu mahsulot o'chirilsa qaytarib bo'lmaydi!
-            </p>
+            <p className="text-xs text-gray-400 text-center mb-6">Bu mahsulot o'chirilsa qaytarib bo'lmaydi!</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteModal(null)}
-                className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold"
-              >
+              <button onClick={() => setDeleteModal(null)}
+                className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold">
                 Bekor
               </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-semibold disabled:opacity-50"
-              >
+              <button onClick={handleDelete} disabled={deleting}
+                className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-semibold disabled:opacity-50">
                 {deleting ? "O'chirilmoqda..." : "O'chirish"}
               </button>
             </div>
@@ -241,40 +228,33 @@ export default function ProductsPage() {
               </p>
             )}
           </div>
-          <button
-            onClick={openAddForm}
-            className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-semibold"
-          >
+          <button onClick={openAddForm}
+            className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-semibold">
             + Qo'shish
           </button>
         </div>
         <div className="relative mb-2.5">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
-          <input
-            type="text" value={search}
+          <input type="text" value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Mahsulot qidirish..."
-            className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-400"
-          />
+            className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-400" />
           {search && (
             <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">✕</button>
           )}
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          <button
-            onClick={() => setActiveKat("barchasi")}
+          <button onClick={() => setActiveKat("barchasi")}
             className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap ${
               activeKat === "barchasi" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500"
-            }`}
-          >
+            }`}>
             Barchasi ({products.length})
           </button>
           {kategoriyalar.map((k) => (
             <button key={k.id} onClick={() => setActiveKat(k.name)}
               className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap ${
                 activeKat === k.name ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500"
-              }`}
-            >
+              }`}>
               {k.name} ({products.filter((p) => p.category === k.name).length})
             </button>
           ))}
@@ -293,11 +273,8 @@ export default function ProductsPage() {
               <h2 className="text-base font-bold text-gray-900">
                 {editProduct ? "Tahrirlash" : "Yangi mahsulot"}
               </h2>
-              <button
-                onClick={handleSubmit}
-                disabled={saving}
-                className="bg-gray-900 text-white px-4 py-1.5 rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              <button onClick={handleSubmit} disabled={saving}
+                className="bg-gray-900 text-white px-4 py-1.5 rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
                 {saving ? "Yuklanmoqda..." : editProduct ? "Saqlash" : "Qo'shish"}
               </button>
             </div>
@@ -528,7 +505,9 @@ export default function ProductsPage() {
                     <p className="text-xs text-gray-400">
                       {p.birlik === "kg" && p.kgPerMetr > 0
                         ? `4m uchun · $${p.priceUsd}/kg`
-                        : `${p.priceUzs.toLocaleString()} so'm`}
+                        : sotishKursi > 0
+                          ? `${Math.round(p.priceUsd * sotishKursi).toLocaleString()} so'm`
+                          : `${p.priceUzs.toLocaleString()} so'm`}
                     </p>
                     <div className="flex gap-1.5 mt-3">
                       <button onClick={() => openEditForm(p)}
