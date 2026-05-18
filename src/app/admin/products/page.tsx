@@ -34,7 +34,19 @@ export default function ProductsPage() {
   const [deleteModal, setDeleteModal] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [kurs, setKurs] = useState<number>(12500);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    loadProducts();
+    loadKategoriyalar();
+    fetch("https://cbu.uz/uz/arkhiv-kursov-valyut/json/USD/")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.[0]?.Rate) setKurs(Number(data[0].Rate));
+      })
+      .catch(() => {});
+  }, []);
 
   async function loadProducts() {
     const res = await fetch("/api/products");
@@ -45,8 +57,6 @@ export default function ProductsPage() {
     const res = await fetch("/api/kategoriya");
     setKategoriyalar(await res.json());
   }
-
-  useEffect(() => { loadProducts(); loadKategoriyalar(); }, []);
 
   const filteredProducts = products.filter((p) => {
     const matchKat = activeKat === "barchasi" || p.category === activeKat;
@@ -136,12 +146,15 @@ export default function ProductsPage() {
     if (saving) return;
     setSaving(true);
     setMessage("Saqlanmoqda...");
+    const priceUzsHisob = Math.round(Number(form.priceUsd) * kurs);
     const body = {
       ...(editProduct ? { id: editProduct.id } : {}),
       name: form.name, category: form.category, tur: form.tur,
       birlik: form.birlik, kgPerMetr: form.kgPerMetr ? Number(form.kgPerMetr) : 0,
       image: form.image, images: form.images,
-      priceUsd: form.priceUsd, shortDesc: form.shortDesc, fullDesc: form.fullDesc,
+      priceUsd: form.priceUsd,
+      priceUzs: priceUzsHisob,
+      shortDesc: form.shortDesc, fullDesc: form.fullDesc,
     };
     const res = await fetch("/api/products", {
       method: editProduct ? "PUT" : "POST",
@@ -168,7 +181,10 @@ export default function ProductsPage() {
     await loadProducts();
   }
 
-  const priceUzs = form.priceUsd ? (Number(form.priceUsd) * 12500).toLocaleString() : "0";
+  const priceUzs = form.priceUsd
+    ? Math.round(Number(form.priceUsd) * kurs).toLocaleString()
+    : "0";
+
   const trubaHisob = form.birlik === "kg" && form.kgPerMetr && form.priceUsd
     ? (4 * Number(form.kgPerMetr) * Number(form.priceUsd)).toFixed(2) : null;
 
@@ -213,7 +229,12 @@ export default function ProductsPage() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 py-3">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-lg font-bold text-gray-900">Mahsulotlar</h1>
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">Mahsulotlar</h1>
+            <p className="text-xs text-gray-400">
+              Kurs: {kurs.toLocaleString()} so'm
+            </p>
+          </div>
           <button
             onClick={openAddForm}
             className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-semibold"
@@ -422,7 +443,11 @@ export default function ProductsPage() {
                       placeholder="0.00"
                       className="w-full border border-gray-200 rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none focus:border-gray-400" />
                   </div>
-                  {form.priceUsd && <p className="text-xs text-gray-400 mt-1">{priceUzs} so'm</p>}
+                  {form.priceUsd && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      {priceUzs} so'm · Kurs: {kurs.toLocaleString()} so'm
+                    </p>
+                  )}
                 </div>
 
                 <div>
