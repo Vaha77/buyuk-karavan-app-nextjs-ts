@@ -18,10 +18,12 @@ export default function KategoriyaPage() {
   const [kategoriyalar, setKategoriyalar] = useState<Kategoriya[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<Kategoriya | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("📦");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchData = async () => {
     const res = await fetch("/api/kategoriya");
@@ -67,22 +69,82 @@ export default function KategoriyaPage() {
     fetchData();
   };
 
-  const handleDelete = async (id: string, mahsulotCount: number) => {
-    if (mahsulotCount > 0) {
-      alert("Bu kategoriyada mahsulotlar bor! Avval mahsulotlarni o'chiring.");
+  const handleDelete = async () => {
+    if (!deleteModal) return;
+    if (deleteModal._count.mahsulotlar > 0) {
+      setDeleteModal(null);
       return;
     }
-    if (!confirm("O'chirilsinmi?")) return;
+    setDeleting(true);
     await fetch("/api/kategoriya", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id: deleteModal.id }),
     });
+    setDeleting(false);
+    setDeleteModal(null);
     fetchData();
   };
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
+
+      {/* O'chirish modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-center w-12 h-12 bg-red-50 rounded-full mx-auto mb-4">
+              <span className="text-2xl">🗑️</span>
+            </div>
+            {deleteModal._count.mahsulotlar > 0 ? (
+              <>
+                <h3 className="text-base font-bold text-gray-900 text-center mb-2">
+                  O'chirib bo'lmaydi!
+                </h3>
+                <p className="text-sm text-gray-500 text-center mb-6">
+                  <span className="font-semibold text-gray-700">{deleteModal.name}</span> kategoriyasida{" "}
+                  <span className="font-bold text-red-500">{deleteModal._count.mahsulotlar} ta mahsulot</span> bor.
+                  Avval mahsulotlarni o'chiring!
+                </p>
+                <button
+                  onClick={() => setDeleteModal(null)}
+                  className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold"
+                >
+                  Tushunarli
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 className="text-base font-bold text-gray-900 text-center mb-2">
+                  O'chirishni tasdiqlang
+                </h3>
+                <p className="text-sm text-gray-500 text-center mb-1">
+                  <span className="font-semibold text-gray-700">{deleteModal.name}</span>
+                </p>
+                <p className="text-xs text-gray-400 text-center mb-6">
+                  Bu kategoriya o'chirilsa qaytarib bo'lmaydi!
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setDeleteModal(null)}
+                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold"
+                  >
+                    Bekor
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-semibold disabled:opacity-50"
+                  >
+                    {deleting ? "O'chirilmoqda..." : "O'chirish"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -107,7 +169,6 @@ export default function KategoriyaPage() {
               {editId ? "Kategoriyani tahrirlash" : "Yangi kategoriya"}
             </h2>
 
-            {/* Icon tanlash */}
             <div className="mb-4">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
                 Ikonka
@@ -129,7 +190,6 @@ export default function KategoriyaPage() {
               </div>
             </div>
 
-            {/* Nom */}
             <div className="mb-6">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
                 Kategoriya nomi
@@ -194,7 +254,11 @@ export default function KategoriyaPage() {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-xs bg-blue-50 text-blue-600 font-semibold px-3 py-1 rounded-full">
+                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                  k._count.mahsulotlar > 0
+                    ? "bg-blue-50 text-blue-600"
+                    : "bg-gray-100 text-gray-400"
+                }`}>
                   {k._count.mahsulotlar} mahsulot
                 </span>
                 <div className="flex gap-2">
@@ -205,7 +269,7 @@ export default function KategoriyaPage() {
                     ✏️ Tahrir
                   </button>
                   <button
-                    onClick={() => handleDelete(k.id, k._count.mahsulotlar)}
+                    onClick={() => setDeleteModal(k)}
                     className="text-xs px-3 py-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition font-medium"
                   >
                     🗑️ O'chir
