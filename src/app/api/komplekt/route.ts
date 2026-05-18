@@ -1,65 +1,62 @@
 import { prisma } from "../../../lib/prisma";
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const search = searchParams.get("search");
+function slugify(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-");
+}
 
-  const komplektlar = await prisma.komplekt.findMany({
-    where: {
-      ...(search ? {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { modelCode: { contains: search, mode: "insensitive" } },
-        ],
-      } : {}),
-    },
-    include: {
-      itemlar: {
-        include: {
-          mahsulot: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
+export async function GET() {
+  const kategoriyalar = await prisma.kategoriya.findMany({
+    orderBy: { createdAt: "asc" },
+    include: { _count: { select: { mahsulotlar: true } } },
   });
 
-  return Response.json(komplektlar);
+  const products = await prisma.product.findMany({
+    select: { category: true },
+  });
+
+  const result = kategoriyalar.map((k) => ({
+    ...k,
+    _count: {
+      mahsulotlar: products.filter((p) => p.category === k.name).length,
+    },
+  }));
+
+  return Response.json(result);
 }
 
 export async function POST(req: Request) {
   const body = await req.json();
-
-  const komplekt = await prisma.komplekt.create({
+  const slug = slugify(body.name);
+  const kategoriya = await prisma.kategoriya.create({
     data: {
-      name:        String(body.name),
-      modelCode:   String(body.modelCode || ""),
-      image:       String(body.image || ""),
-      description: String(body.description || ""),
-      isActive:    true,
+      name: String(body.name),
+      slug,
+      icon: body.icon || "📦",
     },
   });
-
-  return Response.json(komplekt);
+  return Response.json(kategoriya);
 }
 
 export async function PUT(req: Request) {
   const body = await req.json();
-
-  const komplekt = await prisma.komplekt.update({
+  const slug = slugify(body.name);
+  const kategoriya = await prisma.kategoriya.update({
     where: { id: body.id },
     data: {
-      name:        String(body.name),
-      modelCode:   String(body.modelCode || ""),
-      image:       String(body.image || ""),
-      description: String(body.description || ""),
+      name: String(body.name),
+      slug,
+      icon: body.icon,
     },
   });
-
-  return Response.json(komplekt);
+  return Response.json(kategoriya);
 }
 
 export async function DELETE(req: Request) {
   const { id } = await req.json();
-  await prisma.komplekt.delete({ where: { id } });
+  await prisma.kategoriya.delete({ where: { id } });
   return Response.json({ ok: true });
 }
