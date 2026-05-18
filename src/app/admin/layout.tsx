@@ -24,7 +24,6 @@ export default function AdminLayout({
 
   useEffect(() => {
     const savedUser = localStorage.getItem("bk_user");
-
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
@@ -35,24 +34,30 @@ export default function AdminLayout({
   }
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-    });
-
+    await fetch("/api/auth/logout", { method: "POST" });
     localStorage.removeItem("bk_user");
     router.push("/admin/login");
   }
 
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
+  const navLinks = [
+    { href: "/admin", label: "Dashboard", show: true },
+    { href: "/admin/products", label: "Mahsulotlar", show: true },
+    { href: "/admin/users", label: "Foydalanuvchilar", show: isSuperAdmin },
+    { href: "/admin/kategoriya", label: "Kategoriyalar", show: isSuperAdmin },
+    { href: "/admin/kalkulatsiya", label: "Kalkulatsiya", show: isSuperAdmin },
+    { href: "/admin/pending", label: "Tasdiq kutayotganlar", show: isSuperAdmin },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-100 lg:flex">
+      {/* Mobile Header */}
       <header className="sticky top-0 z-40 flex items-center justify-between bg-white px-4 py-3 shadow-sm lg:hidden">
         <div>
           <p className="text-xs font-semibold text-blue-600">BUYUK KARAVAN</p>
           <h1 className="text-lg font-bold">Admin Panel</h1>
         </div>
-
         <button
           onClick={() => setOpen(true)}
           className="rounded-xl bg-slate-950 px-4 py-2 text-white"
@@ -61,6 +66,7 @@ export default function AdminLayout({
         </button>
       </header>
 
+      {/* Overlay */}
       {open && (
         <div
           onClick={() => setOpen(false)}
@@ -68,72 +74,43 @@ export default function AdminLayout({
         />
       )}
 
+      {/* Sidebar */}
       <aside
         className={`fixed left-0 top-0 z-50 flex h-screen w-72 flex-col bg-slate-950 p-5 text-white transition-transform duration-300 lg:sticky lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
+        {/* Logo */}
         <div className="mb-8 rounded-2xl bg-white/10 p-4">
           <p className="text-xs font-semibold text-blue-300">BUYUK KARAVAN</p>
           <h2 className="text-2xl font-bold">Admin Panel</h2>
-
-    {user && (
-  <div className="mt-2 text-sm">
-    <p className="font-medium text-white">
-      {user.name}
-    </p>
-    <span className="text-xs text-blue-400">
-      {user.role}
-    </span>
-  </div>
-)}
+          {user && (
+            <div className="mt-2 text-sm">
+              <p className="font-medium text-white">{user.name}</p>
+              <span className="text-xs text-blue-400">{user.role}</span>
+            </div>
+          )}
         </div>
 
-        <nav className="grid gap-2">
-          <Link
-            onClick={() => setOpen(false)}
-            href="/admin"
-            className="rounded-xl px-4 py-3 hover:bg-white/10"
-          >
-            Dashboard
-          </Link>
-
-          <Link
-            onClick={() => setOpen(false)}
-            href="/admin/products"
-            className="rounded-xl px-4 py-3 hover:bg-white/10"
-          >
-            Mahsulotlar
-          </Link>
-
-          {isSuperAdmin && (
-            <>
+        {/* Nav */}
+        <nav className="grid gap-1">
+          {navLinks.map((link) =>
+            link.show ? (
               <Link
+                key={link.href}
+                href={link.href}
                 onClick={() => setOpen(false)}
-                href="/admin/users"
-                className="rounded-xl px-4 py-3 hover:bg-white/10"
+                className={`rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-white/10 ${
+                  pathname === link.href ? "bg-white/20 text-white" : "text-white/80"
+                }`}
               >
-                Foydalanuvchilar
+                {link.label}
               </Link>
-<Link
-  onClick={() => setOpen(false)}
-  href="/admin/kalkulatsiya"
-  className="rounded-xl px-4 py-3 hover:bg-white/10"
->
-  Kalkulatsiya
-</Link>
-              <Link
-                onClick={() => setOpen(false)}
-                href="/admin/pending"
-                className="rounded-xl px-4 py-3 hover:bg-white/10"
-              >
-                Tasdiq kutayotganlar
-              </Link>
-              
-            </>
+            ) : null
           )}
         </nav>
 
+        {/* Logout */}
         <button
           onClick={handleLogout}
           className="mt-auto rounded-xl bg-red-600 px-4 py-3 font-semibold text-white transition hover:bg-red-700"
@@ -142,6 +119,7 @@ export default function AdminLayout({
         </button>
       </aside>
 
+      {/* Main */}
       <main className="flex-1 p-4 md:p-6 lg:p-8">
         <div className="mx-auto max-w-7xl">{children}</div>
       </main>
