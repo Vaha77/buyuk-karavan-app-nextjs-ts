@@ -2,435 +2,414 @@
 
 import { useEffect, useState, useRef } from "react";
 
-type User = {
-  role: "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "SELLER" | "VIEWER";
-};
-
-type Kategoriya = {
+type Kategoriya = { id: string; name: string; };
+type Product = { id: string; name: string; priceUsd: number; birlik: string; kgPerMetr: number; };
+type Qism = { id: string; nom: string; mahsulot: string; miqdor: number; narx: number; };
+type Hisob = {
   id: string;
-  name: string;
+  mijozIsm: string;
+  mijozTel: string;
+  brend: string;
+  model: string;
+  foiz: number;
+  tanNarxi: number;
+  jamiNarx: number;
+  createdAt: string;
+  sotuvchi: { name: string };
+  qismlar: Qism[];
 };
 
-type Komplekt = {
-  id: string;
-  name: string;
-  image: string;
-  source: string;
-  modelCode: string;
-  fan: string;
-  nerj: string;
-  truba: string;
-  extras: string[];
-  priceUsd: number;
-  description: string;
-  categoryId: string | null;
-  category: Kategoriya | null;
+const BRENDLAR = [
+  { value: "xueing", label: "Xueing" },
+  { value: "bitzer", label: "Bitzer" },
+  { value: "cold", label: "Cold" },
+];
+
+const MODELLAR: Record<string, string[]> = {
+  xueing: ["Kompressor XUEING BR+10G", "Kompressor XUEING BR+20PG", "Kompressor XUEING BR+30PG", "Vazdushniy Agregat BR+10G", "Vazdushniy Agregat BR+20PG"],
+  bitzer: ["Bitzer 4FES-3", "Bitzer 4NES-14", "Bitzer 4TES-12", "Bitzer 6FE-44"],
+  cold: ["Cold agregat 10kw", "Cold agregat 20kw", "Cold agregat 30kw"],
 };
 
-const emptyForm = {
-  name: "",
-  image: "",
-  source: "br",
-  modelCode: "",
-  fan: "",
-  nerj: "",
-  truba: "",
-  extras: [] as string[],
-  priceUsd: "",
-  description: "",
-  categoryId: "",
-};
+function getInitials(name: string) {
+  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+}
 
 export default function KalkulatsiyaPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [komplektlar, setKomplektlar] = useState<Komplekt[]>([]);
   const [kategoriyalar, setKategoriyalar] = useState<Kategoriya[]>([]);
-  const [source, setSource] = useState("all");
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [hisoblar, setHisoblar] = useState<Hisob[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [showKatForm, setShowKatForm] = useState(false);
-  const [editItem, setEditItem] = useState<Komplekt | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [newKatName, setNewKatName] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [kurs, setKurs] = useState(12986);
+  const [sotuvchiId, setSotuvchiId] = useState("");
+
+  const [mijozIsm, setMijozIsm] = useState("");
+  const [mijozTel, setMijozTel] = useState("");
+  const [brend, setBrend] = useState("");
+  const [model, setModel] = useState("");
+  const [foiz, setFoiz] = useState(0);
+  const [qismlar, setQismlar] = useState<Qism[]>([]);
+
+  const [showQismModal, setShowQismModal] = useState(false);
+  const [qismKat, setQismKat] = useState("");
+  const [qismMahsulotlar, setQismMahsulotlar] = useState<Product[]>([]);
+  const [qismMahsulot, setQismMahsulot] = useState("");
+  const [qismMiqdor, setQismMiqdor] = useState(1);
+
+  const [deleteModal, setDeleteModal] = useState<Hisob | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("bk_user");
-    if (saved) setUser(JSON.parse(saved));
+    if (saved) setSotuvchiId(JSON.parse(saved).id);
+    loadKategoriyalar();
+    loadHisoblar();
+    fetch("https://cbu.uz/uz/arkhiv-kursov-valyut/json/USD/")
+      .then(r => r.json())
+      .then(data => { if (data?.[0]?.Rate) setKurs(Number(data[0].Rate) + 1000); })
+      .catch(() => {});
   }, []);
 
   async function loadKategoriyalar() {
     const res = await fetch("/api/kategoriya");
-    const data = await res.json();
-    setKategoriyalar(data);
+    setKategoriyalar(await res.json());
   }
 
-  async function loadKomplektlar() {
-    const params = new URLSearchParams();
-    if (source !== "all") params.set("source", source);
-    if (search) params.set("search", search);
-    if (categoryFilter !== "all") params.set("categoryId", categoryFilter);
-    const res = await fetch("/api/komplekt?" + params.toString());
-    const data = await res.json();
-    setKomplektlar(data);
+  async function loadHisoblar() {
+    const res = await fetch("/api/hisob");
+    setHisoblar(await res.json());
   }
 
-  useEffect(() => {
-    loadKategoriyalar();
-  }, []);
-
-  useEffect(() => {
-    loadKomplektlar();
-  }, [source, search, categoryFilter]);
-
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
-
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  async function loadQismMahsulotlar(kat: string) {
+    setQismKat(kat);
+    setQismMahsulot("");
+    if (!kat) { setQismMahsulotlar([]); return; }
+    const res = await fetch(`/api/products?category=${encodeURIComponent(kat)}`);
+    setQismMahsulotlar(await res.json());
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
-    const data = await res.json();
-    if (data.url) setForm((f) => ({ ...f, image: data.url }));
-    setUploading(false);
+  const tanNarxi = qismlar.reduce((sum, q) => sum + q.narx * q.miqdor, 0);
+  const qoshimcha = Math.round(tanNarxi * foiz / 100);
+  const jamiNarx = tanNarxi + qoshimcha;
+  const jamiSom = Math.round(jamiNarx * kurs);
+
+  function qismQosh() {
+    const mahsulot = qismMahsulotlar.find(p => p.id === qismMahsulot);
+    if (!mahsulot || !qismKat) return;
+    setQismlar(prev => [...prev, {
+      id: Date.now().toString(),
+      nom: qismKat,
+      mahsulot: mahsulot.name,
+      miqdor: qismMiqdor,
+      narx: mahsulot.priceUsd,
+    }]);
+    setShowQismModal(false);
+    setQismKat(""); setQismMahsulot(""); setQismMiqdor(1);
   }
 
-  function openAddForm() {
-    setEditItem(null);
-    setForm(emptyForm);
-    setMessage("");
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  function qismOchir(id: string) {
+    setQismlar(prev => prev.filter(q => q.id !== id));
   }
 
-  function openEditForm(k: Komplekt) {
-    setEditItem(k);
-    setForm({
-      name: k.name,
-      image: k.image,
-      source: k.source,
-      modelCode: k.modelCode,
-      fan: k.fan,
-      nerj: k.nerj,
-      truba: k.truba,
-      extras: k.extras || [],
-      priceUsd: String(k.priceUsd),
-      description: k.description,
-      categoryId: k.categoryId || "",
-    });
-    setMessage("");
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  function qismMiqdorOzgartir(id: string, delta: number) {
+    setQismlar(prev => prev.map(q => q.id === id ? { ...q, miqdor: Math.max(1, q.miqdor + delta) } : q));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.name.trim()) { setMessage("Nomi kiritilmagan ❗"); return; }
-    if (!form.priceUsd) { setMessage("Narx kiritilmagan ❗"); return; }
-    if (!form.image) { setMessage("Rasm yuklanmagan ❗"); return; }
-
-    const body = {
-      ...(editItem ? { id: editItem.id } : {}),
-      ...form,
-      categoryId: form.categoryId || null,
-    };
-
-    const res = await fetch("/api/komplekt", {
-      method: editItem ? "PUT" : "POST",
-      body: JSON.stringify(body),
-    });
-
-    if (res.ok) {
-      setMessage(editItem ? "Yangilandi ✅" : "Qo'shildi ✅");
-      setForm(emptyForm);
-      setEditItem(null);
-      setShowForm(false);
-      await loadKomplektlar();
-    } else {
-      setMessage("Xatolik ❌");
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("O'chirishni tasdiqlaysizmi?")) return;
-    const res = await fetch("/api/komplekt", {
-      method: "DELETE",
-      body: JSON.stringify({ id }),
-    });
-    if (res.ok) await loadKomplektlar();
-  }
-
-  async function handleAddKategoriya() {
-    if (!newKatName.trim()) return;
-    await fetch("/api/kategoriya", {
+  async function handleSave() {
+    if (!mijozIsm.trim()) { setMessage("Mijoz ismi kiritilmagan ❗"); return; }
+    if (!brend || !model) { setMessage("Brend va model tanlang ❗"); return; }
+    if (qismlar.length === 0) { setMessage("Kamida 1 ta qism qo'shing ❗"); return; }
+    if (saving) return;
+    setSaving(true);
+    const res = await fetch("/api/hisob", {
       method: "POST",
-      body: JSON.stringify({ name: newKatName }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mijozIsm, mijozTel, brend, model, foiz, tanNarxi, jamiNarx, sotuvchiId, qismlar }),
     });
-    setNewKatName("");
-    await loadKategoriyalar();
+    if (res.ok) {
+      setShowForm(false);
+      setMijozIsm(""); setMijozTel(""); setBrend(""); setModel(""); setFoiz(0); setQismlar([]);
+      setMessage("");
+      await loadHisoblar();
+    } else { setMessage("Xatolik ❌"); }
+    setSaving(false);
   }
 
-  async function handleDeleteKategoriya(id: string) {
-    if (!confirm("Kategoriyani o'chirishni tasdiqlaysizmi?")) return;
-    await fetch("/api/kategoriya", {
+  async function handleDelete() {
+    if (!deleteModal) return;
+    setDeleting(true);
+    await fetch("/api/hisob", {
       method: "DELETE",
-      body: JSON.stringify({ id }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: deleteModal.id }),
     });
-    await loadKategoriyalar();
+    setDeleting(false);
+    setDeleteModal(null);
+    await loadHisoblar();
   }
-
-  const sourceLabel: Record<string, string> = {
-    br: "BR Magazin",
-    bitzer: "Bitzer Magazin",
-    ucs: "UCS Magazin",
-    xitoy: "Xitoy DD/DJ",
-  };
 
   return (
-    <div>
-      {/* Yuqori qism */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">Kalkulatsiya</h1>
-        {isSuperAdmin && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowKatForm(!showKatForm)}
-              className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              🗂️ Kategoriyalar
-            </button>
-            <button
-              onClick={openAddForm}
-              className="rounded-xl bg-slate-950 px-6 py-3 font-semibold text-white"
-            >
-              ➕ Yangi komplekt
-            </button>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+
+      {/* O'chirish modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-center w-12 h-12 bg-red-50 rounded-full mx-auto mb-4">
+              <span className="text-2xl">🗑️</span>
+            </div>
+            <h3 className="text-base font-bold text-gray-900 text-center mb-2">O'chirishni tasdiqlang</h3>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              <span className="font-semibold">{deleteModal.mijozIsm}</span> — ${deleteModal.jamiNarx.toLocaleString()}
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteModal(null)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold">Bekor</button>
+              <button onClick={handleDelete} disabled={deleting} className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-semibold disabled:opacity-50">
+                {deleting ? "O'chirilmoqda..." : "O'chirish"}
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Qism qo'shish modal */}
+      {showQismModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-base font-bold text-gray-900 mb-4">Qism qo'shish</h3>
+            <div className="flex flex-col gap-3 mb-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Kategoriya</p>
+                <select value={qismKat} onChange={e => loadQismMahsulotlar(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white">
+                  <option value="">— Tanlang —</option>
+                  {kategoriyalar.map(k => <option key={k.id} value={k.name}>{k.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Mahsulot</p>
+                <select value={qismMahsulot} onChange={e => setQismMahsulot(e.target.value)}
+                  disabled={!qismKat || qismMahsulotlar.length === 0}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white disabled:opacity-50">
+                  <option value="">— Tanlang —</option>
+                  {qismMahsulotlar.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — ${p.birlik === "kg" && p.kgPerMetr > 0 ? (4 * p.kgPerMetr * p.priceUsd).toFixed(2) : p.priceUsd}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Miqdor</p>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setQismMiqdor(m => Math.max(1, m - 1))}
+                    className="w-10 h-10 rounded-xl border border-gray-200 bg-gray-50 text-lg font-bold flex items-center justify-center">−</button>
+                  <span className="text-lg font-semibold text-gray-900 min-w-8 text-center">{qismMiqdor}</span>
+                  <button onClick={() => setQismMiqdor(m => m + 1)}
+                    className="w-10 h-10 rounded-xl border border-gray-200 bg-gray-50 text-lg font-bold flex items-center justify-center">+</button>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={qismQosh} disabled={!qismMahsulot}
+                className="flex-1 py-3 bg-gray-900 text-white rounded-xl text-sm font-semibold disabled:opacity-50">
+                Qo'shish
+              </button>
+              <button onClick={() => setShowQismModal(false)}
+                className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold">
+                Bekor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Yangi hisob formasi */}
+      {showForm && (
+        <div className="fixed inset-0 z-40 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl overflow-hidden max-h-[95vh] flex flex-col">
+            <div className="flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-10 h-1 bg-gray-200 rounded-full"></div>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <button onClick={() => setShowForm(false)} className="text-gray-400">✕</button>
+              <h2 className="text-base font-bold text-gray-900">Yangi hisob</h2>
+              <button onClick={handleSave} disabled={saving}
+                className="bg-gray-900 text-white px-4 py-1.5 rounded-xl text-sm font-semibold disabled:opacity-50">
+                {saving ? "..." : "Saqlash"}
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-4 flex flex-col gap-4">
+
+              {/* Mijoz */}
+              <div className="bg-gray-50 rounded-2xl p-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Mijoz ma'lumotlari</p>
+                <div className="flex flex-col gap-2">
+                  <input type="text" value={mijozIsm} onChange={e => setMijozIsm(e.target.value)}
+                    placeholder="Mijoz ismi" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400" />
+                  <input type="text" value={mijozTel} onChange={e => setMijozTel(e.target.value)}
+                    placeholder="Telefon: +998 90 123 45 67" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400" />
+                </div>
+              </div>
+
+              {/* Komplekt */}
+              <div className="bg-gray-50 rounded-2xl p-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Komplekt tanlash</p>
+                <div className="flex flex-col gap-2">
+                  <select value={brend} onChange={e => { setBrend(e.target.value); setModel(""); }}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white">
+                    <option value="">— Brend tanlang —</option>
+                    {BRENDLAR.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+                  </select>
+                  <select value={model} onChange={e => setModel(e.target.value)}
+                    disabled={!brend}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white disabled:opacity-50">
+                    <option value="">— Model tanlang —</option>
+                    {(MODELLAR[brend] || []).map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Qismlar */}
+              <div className="bg-gray-50 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Qismlar</p>
+                  <button onClick={() => setShowQismModal(true)}
+                    className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg font-semibold">
+                    + Qo'shish
+                  </button>
+                </div>
+                {qismlar.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">Hali qism qo'shilmagan</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {qismlar.map(q => (
+                      <div key={q.id} className="bg-white rounded-xl p-3 border border-gray-100">
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-xs font-semibold text-gray-500">{q.nom}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-green-600">${(q.narx * q.miqdor).toFixed(2)}</p>
+                            <button onClick={() => qismOchir(q.id)} className="text-red-400 text-sm">🗑️</button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-700 mb-2">{q.mahsulot}</p>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => qismMiqdorOzgartir(q.id, -1)}
+                            className="w-7 h-7 rounded-lg border border-gray-200 bg-gray-50 text-sm font-bold flex items-center justify-center">−</button>
+                          <span className="text-sm font-semibold text-gray-900 min-w-6 text-center">{q.miqdor}</span>
+                          <button onClick={() => qismMiqdorOzgartir(q.id, 1)}
+                            className="w-7 h-7 rounded-lg border border-gray-200 bg-gray-50 text-sm font-bold flex items-center justify-center">+</button>
+                          <span className="text-xs text-gray-400">dona</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Narx */}
+              {qismlar.length > 0 && (
+                <div className="bg-gray-50 rounded-2xl p-4">
+                  <div className="flex justify-between mb-2">
+                    <p className="text-sm text-gray-500">Tan narxi</p>
+                    <p className="text-sm font-semibold text-gray-900">${tanNarxi.toFixed(2)}</p>
+                  </div>
+                  <div className="flex justify-between mb-1 pb-2 border-b border-gray-200">
+                    <p className="text-base font-bold text-gray-900">Jami narx</p>
+                    <p className="text-xl font-bold text-green-600">${jamiNarx.toFixed(2)}</p>
+                  </div>
+                  <p className="text-xs text-gray-400 text-right mb-3">{jamiSom.toLocaleString()} so'm</p>
+
+                  {/* Foyda/Ziyon */}
+                  {foiz !== 0 && (
+                    <div className={`flex justify-between items-center px-3 py-2 rounded-xl mb-3 ${foiz > 0 ? "bg-blue-50" : "bg-red-50"}`}>
+                      <p className={`text-sm font-semibold ${foiz > 0 ? "text-blue-700" : "text-red-600"}`}>
+                        {foiz > 0 ? "💰 Foyda" : "📉 Ziyon"}
+                      </p>
+                      <p className={`text-sm font-bold ${foiz > 0 ? "text-blue-700" : "text-red-600"}`}>
+                        {foiz > 0 ? "+" : ""}{qoshimcha < 0 ? "-" : ""}${Math.abs(qoshimcha).toFixed(2)}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Ustama/Chegirma */}
+                  <div className="bg-white rounded-xl p-3 border border-gray-100">
+                    <div className="flex justify-between mb-2">
+                      <p className="text-xs text-gray-500">Ustama / Chegirma</p>
+                      <span className={`text-sm font-bold ${foiz > 0 ? "text-blue-600" : foiz < 0 ? "text-red-500" : "text-gray-600"}`}>
+                        {foiz > 0 ? "+" : ""}{foiz}%
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => setFoiz(f => Math.max(-50, f - 1))}
+                        className="w-9 h-9 rounded-xl border border-gray-200 bg-gray-50 text-lg font-bold flex items-center justify-center">−</button>
+                      <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                        <div style={{ width: `${((foiz + 50) / 100) * 100}%`, background: foiz > 0 ? "#185FA5" : "#E24B4A" }}
+                          className="h-full rounded-full transition-all" />
+                      </div>
+                      <button onClick={() => setFoiz(f => Math.min(50, f + 1))}
+                        className="w-9 h-9 rounded-xl border border-gray-200 bg-gray-50 text-lg font-bold flex items-center justify-center">+</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {message && (
+                <p className={`text-xs font-medium ${message.includes("❌") ? "text-red-500" : "text-gray-500"}`}>{message}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Kalkulatsiya</h1>
+          <p className="text-sm text-gray-400 mt-1">Kurs: {kurs.toLocaleString()} so'm</p>
+        </div>
+        <button onClick={() => setShowForm(true)}
+          className="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-semibold">
+          + Yangi hisob
+        </button>
       </div>
 
-      {/* Kategoriya boshqaruvi - faqat SUPER_ADMIN */}
-      {showKatForm && isSuperAdmin && (
-        <div className="mb-6 rounded-3xl bg-white p-5 shadow-sm">
-          <h3 className="mb-4 font-bold">🗂️ Kategoriyalar boshqaruvi</h3>
-          <div className="mb-4 flex gap-2">
-            <input
-              type="text"
-              value={newKatName}
-              onChange={(e) => setNewKatName(e.target.value)}
-              placeholder="Yangi kategoriya nomi"
-              className="flex-1 rounded-xl border border-slate-300 p-3 text-sm"
-              onKeyDown={(e) => e.key === "Enter" && handleAddKategoriya()}
-            />
-            <button
-              onClick={handleAddKategoriya}
-              className="rounded-xl bg-slate-950 px-5 py-2 text-sm font-semibold text-white"
-            >
-              Qo'shish
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {kategoriyalar.map((k) => (
-              <div
-                key={k.id}
-                className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              >
-                <span>{k.name}</span>
-                <button
-                  onClick={() => handleDeleteKategoriya(k.id)}
-                  className="text-red-400 hover:text-red-600"
-                >
-                  ✕
+      {/* Hisoblar ro'yxati */}
+      {hisoblar.length === 0 ? (
+        <div className="text-center py-20">
+          <p className="text-4xl mb-3">🧮</p>
+          <p className="text-gray-400">Hali hisob yo'q</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {hisoblar.map(h => (
+            <div key={h.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-sm font-bold text-blue-700 flex-shrink-0">
+                  {getInitials(h.mijozIsm)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">{h.mijozIsm}</p>
+                  <p className="text-xs text-gray-400">{h.mijozTel} · {h.brend} {h.model}</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-bold text-green-600">${h.jamiNarx.toLocaleString()}</p>
+                  <p className="text-xs text-gray-400">{new Date(h.createdAt).toLocaleDateString("uz-UZ")}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-400">{h.qismlar.length} ta qism · Tan: ${h.tanNarxi.toLocaleString()}</p>
+                <button onClick={() => setDeleteModal(h)}
+                  className="text-xs px-3 py-1.5 bg-red-50 text-red-500 rounded-lg font-semibold">
+                  🗑️ O'chir
                 </button>
               </div>
-            ))}
-            {kategoriyalar.length === 0 && (
-              <p className="text-sm text-slate-400">Kategoriya yo'q</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Filter */}
-      <div className="mb-6 flex flex-wrap gap-3">
-        <select
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium"
-        >
-          <option value="all">Barchasi</option>
-          <option value="br">BR Magazin narx</option>
-          <option value="bitzer">Bitzer Magazin narx</option>
-          <option value="ucs">UCS Magazin narx</option>
-          <option value="xitoy">Xitoy DD/DJ Magazin narx</option>
-        </select>
-
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium"
-        >
-          <option value="all">Barcha kategoriyalar</option>
-          {kategoriyalar.map((k) => (
-            <option key={k.id} value={k.id}>
-              {k.name}
-            </option>
+            </div>
           ))}
-        </select>
-
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="🔍 Qidirish..."
-          className="min-w-48 flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm"
-        />
-      </div>
-
-      {/* Komplekt qo'shish/tahrirlash formasi */}
-      {showForm && isSuperAdmin && (
-        <div className="mb-8 rounded-3xl bg-white p-6 shadow-sm">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-xl font-bold">
-              {editItem ? "✏️ Tahrirlash" : "➕ Yangi komplekt"}
-            </h2>
-            <button
-              onClick={() => setShowForm(false)}
-              className="text-xl text-slate-400 hover:text-slate-700"
-            >
-              ✕
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <p className="mb-2 text-sm font-semibold text-slate-600">📸 Rasm</p>
-              <div className="flex items-start gap-3">
-                <div
-                  onClick={() => fileRef.current?.click()}
-                  className="flex h-32 w-32 flex-shrink-0 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 hover:border-slate-500"
-                >
-                  {form.image ? (
-                    <img src={form.image} className="h-full w-full rounded-2xl object-cover" />
-                  ) : (
-                    <span className="text-3xl">📷</span>
-                  )}
-                </div>
-                <div>
-                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50"
-                  >
-                    {uploading ? "Yuklanmoqda..." : "📁 Rasm tanlash"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <input name="name" value={form.name} onChange={handleChange} placeholder="Komplekt nomi" className="rounded-xl border border-slate-300 p-3" />
-              <select name="source" value={form.source} onChange={handleChange} className="rounded-xl border border-slate-300 p-3">
-                <option value="br">BR Magazin</option>
-                <option value="bitzer">Bitzer Magazin</option>
-                <option value="ucs">UCS Magazin</option>
-                <option value="xitoy">Xitoy DD/DJ</option>
-              </select>
-              <select name="categoryId" value={form.categoryId} onChange={handleChange} className="rounded-xl border border-slate-300 p-3">
-                <option value="">Kategoriya tanlang</option>
-                {kategoriyalar.map((k) => (
-                  <option key={k.id} value={k.id}>{k.name}</option>
-                ))}
-              </select>
-              <input name="modelCode" value={form.modelCode} onChange={handleChange} placeholder="Model kodi: BR+20PG" className="rounded-xl border border-slate-300 p-3" />
-              <input name="priceUsd" type="number" value={form.priceUsd} onChange={handleChange} placeholder="Narx (USD)" className="rounded-xl border border-slate-300 p-3" />
-              <input name="fan" value={form.fan} onChange={handleChange} placeholder="Fan: FN160" className="rounded-xl border border-slate-300 p-3" />
-              <input name="nerj" value={form.nerj} onChange={handleChange} placeholder="Nerjaveyka: DD160" className="rounded-xl border border-slate-300 p-3" />
-              <input name="truba" value={form.truba} onChange={handleChange} placeholder='Truba: 10m' className="rounded-xl border border-slate-300 p-3" />
-              <textarea name="description" value={form.description} onChange={handleChange} placeholder="Komplekt haqida ma'lumot" className="min-h-20 rounded-xl border border-slate-300 p-3 md:col-span-2" />
-            </div>
-
-            <div className="mt-5 flex gap-3">
-              <button type="submit" className="rounded-xl bg-slate-950 px-6 py-3 font-semibold text-white">
-                {editItem ? "Saqlash" : "Qo'shish"}
-              </button>
-              <button type="button" onClick={() => setShowForm(false)} className="rounded-xl border border-slate-300 px-6 py-3 font-semibold text-slate-600">
-                Bekor qilish
-              </button>
-            </div>
-
-            {message && <p className="mt-4 text-sm font-medium text-slate-700">{message}</p>}
-          </form>
         </div>
       )}
-
-      {/* Kartalar */}
-      <div className="grid gap-5 md:grid-cols-3">
-        {komplektlar.map((k) => (
-          <div key={k.id} className="flex flex-col rounded-3xl bg-white p-4 shadow-sm">
-            <div className="relative">
-              {k.image ? (
-                <img src={k.image} alt={k.name} className="h-48 w-full rounded-2xl bg-slate-100 object-cover" />
-              ) : (
-                <div className="flex h-48 w-full items-center justify-center rounded-2xl bg-slate-100 text-slate-400">Rasm yo'q</div>
-              )}
-              <span className="absolute left-2 top-2 rounded-xl bg-black/60 px-3 py-1 text-xs font-semibold text-white">
-                {sourceLabel[k.source] || k.source}
-              </span>
-              {k.category && (
-                <span className="absolute right-2 top-2 rounded-xl bg-blue-600/80 px-3 py-1 text-xs font-semibold text-white">
-                  {k.category.name}
-                </span>
-              )}
-            </div>
-
-            <div className="mt-4 flex flex-1 flex-col">
-              <p className="text-xs font-semibold text-blue-600">{k.modelCode}</p>
-              <h3 className="mt-1 font-bold">{k.name}</h3>
-              <p className="mt-1 text-sm text-slate-500 line-clamp-2">{k.description}</p>
-
-              <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 space-y-1">
-                {k.fan && <p>🌀 Fan: <span className="font-medium">{k.fan}</span></p>}
-                {k.nerj && <p>💧 Nerj: <span className="font-medium">{k.nerj}</span></p>}
-                {k.truba && <p>🔧 Truba: <span className="font-medium">{k.truba}</span></p>}
-              </div>
-
-              <div className="mt-3">
-                <p className="text-lg font-bold text-slate-900">${k.priceUsd.toLocaleString()}</p>
-              </div>
-
-              {isSuperAdmin && (
-                <div className="mt-4 flex gap-2">
-                  <button onClick={() => openEditForm(k)} className="flex-1 rounded-xl border border-slate-300 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                    ✏️ Tahrirlash
-                  </button>
-                  <button onClick={() => handleDelete(k.id)} className="flex-1 rounded-xl bg-red-500 py-2 text-sm font-semibold text-white hover:bg-red-600">
-                    🗑️ O'chirish
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {komplektlar.length === 0 && (
-          <div className="col-span-3 py-16 text-center text-slate-400">
-            Hozircha komplekt yo'q
-          </div>
-        )}
-      </div>
     </div>
   );
 }
