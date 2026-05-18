@@ -33,6 +33,7 @@ export default function ProductsPage() {
   const [activeKat, setActiveKat] = useState("barchasi");
   const [deleteModal, setDeleteModal] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function loadProducts() {
@@ -132,6 +133,9 @@ export default function ProductsPage() {
   async function handleSubmit() {
     if (!form.name.trim()) { setMessage("Mahsulot nomi kiritilmagan ❗"); return; }
     if (!form.priceUsd) { setMessage("Narx kiritilmagan ❗"); return; }
+    if (saving) return;
+    setSaving(true);
+    setMessage("Saqlanmoqda...");
     const body = {
       ...(editProduct ? { id: editProduct.id } : {}),
       name: form.name, category: form.category, tur: form.tur,
@@ -148,6 +152,7 @@ export default function ProductsPage() {
       setShowForm(false); setForm(emptyForm); setEditProduct(null);
       setMessage(""); await loadProducts();
     } else { setMessage("Xatolik ❌"); }
+    setSaving(false);
   }
 
   async function handleDelete() {
@@ -261,9 +266,12 @@ export default function ProductsPage() {
               <h2 className="text-base font-bold text-gray-900">
                 {editProduct ? "Tahrirlash" : "Yangi mahsulot"}
               </h2>
-              <button onClick={handleSubmit}
-                className="bg-gray-900 text-white px-4 py-1.5 rounded-xl text-sm font-semibold">
-                {editProduct ? "Saqlash" : "Qo'shish"}
+              <button
+                onClick={handleSubmit}
+                disabled={saving}
+                className="bg-gray-900 text-white px-4 py-1.5 rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? "Yuklanmoqda..." : editProduct ? "Saqlash" : "Qo'shish"}
               </button>
             </div>
 
@@ -318,7 +326,14 @@ export default function ProductsPage() {
               </div>
 
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-              {message && <p className="mx-4 mt-2 text-xs font-medium text-gray-500">{message}</p>}
+              {message && (
+                <p className={`mx-4 mt-2 text-xs font-medium ${
+                  message.includes("❌") ? "text-red-500" :
+                  message.includes("✅") ? "text-green-600" : "text-gray-500"
+                }`}>
+                  {message}
+                </p>
+              )}
 
               <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
                 <div>
