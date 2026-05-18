@@ -31,7 +31,8 @@ model User {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   kalkulyatorlar   KalkulyatorSession[]
-  tolovlar  Tolov[]
+  salesLimit    Float?   // null = limitsiz
+  tolovlar      Tolov[]
 }
 
 // ─── KATEGORIYA ───────────────────────────
