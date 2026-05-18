@@ -34,7 +34,7 @@ export default function ProductsPage() {
   const [deleteModal, setDeleteModal] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [kurs, setKurs] = useState<number>(12500);
+  const [kurs, setKurs] = useState<number>(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
