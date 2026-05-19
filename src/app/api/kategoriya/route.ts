@@ -43,7 +43,16 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   const body = await req.json();
+
+  // Avval eski nomni olamiz
+  const old = await prisma.kategoriya.findUnique({
+    where: { id: body.id },
+    select: { name: true },
+  });
+
   const slug = slugify(body.name);
+
+  // Kategoriya nomini yangilaymiz
   const kategoriya = await prisma.kategoriya.update({
     where: { id: body.id },
     data: {
@@ -52,6 +61,15 @@ export async function PUT(req: Request) {
       icon: body.icon,
     },
   });
+
+  // Product tablidagi eski nomlarni ham yangi nom bilan almashtiramiz
+  if (old && old.name !== body.name) {
+    await prisma.product.updateMany({
+      where: { category: old.name },
+      data: { category: String(body.name) },
+    });
+  }
+
   return Response.json(kategoriya);
 }
 
