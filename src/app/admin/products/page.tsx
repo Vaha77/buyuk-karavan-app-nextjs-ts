@@ -39,7 +39,7 @@ export default function ProductsPage() {
   const [sana, setSana] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const sotishKursi = kurs > 0 ? kurs + 1000 : 0;
+  const sotishKursi = kurs > 0 ? kurs : 0;
   const kursOzgarish = kurs > 0 && kechakiKurs > 0 ? kurs - kechakiKurs : 0;
 
   useEffect(() => {
@@ -239,14 +239,21 @@ export default function ProductsPage() {
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-1 flex-wrap">
                   <p className="text-xs text-gray-500">
-                    {kurs.toLocaleString()} + 1 000 =
-                    <span className="font-bold text-gray-800"> {sotishKursi.toLocaleString()} so'm</span>
+                    <span className="font-bold text-gray-800">{sotishKursi.toLocaleString()} so'm</span>
                   </p>
                   {kechakiKurs > 0 && (
                     <span className={`text-xs font-bold flex items-center gap-0.5 ${
-                      kursOzgarish >= 0 ? "text-green-500" : "text-red-500"
+                      kursOzgarish >= 0 ? "text-blue-500" : "text-red-500"
                     }`}>
-                      {kursOzgarish >= 0 ? "↑" : "↓"}
+                      {kursOzgarish >= 0 ? (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                          <path d="M6 1L11 8H1L6 1Z"/>
+                        </svg>
+                      ) : (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                          <path d="M6 11L1 4H11L6 11Z"/>
+                        </svg>
+                      )}
                       {Math.abs(kursOzgarish).toFixed(1)}
                     </span>
                   )}
@@ -455,7 +462,7 @@ export default function ProductsPage() {
                   </div>
                   {form.priceUsd && sotishKursi > 0 && (
                     <p className="text-xs text-gray-400 mt-1">
-                      {priceUzs} so'm · Kurs: {kurs.toLocaleString()} + 1 000 = {sotishKursi.toLocaleString()} so'm
+                      {priceUzs} so'm · Kurs: {sotishKursi.toLocaleString()} so'm
                     </p>
                   )}
                 </div>
