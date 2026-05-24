@@ -4,29 +4,40 @@ import { useState } from "react";
 
 export default function AdminLoginPage() {
   const [message, setMessage] = useState("");
-const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setMessage("");
+    setLoading(true);
 
     const form = new FormData(e.currentTarget);
 
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify({
-        phone: form.get("phone"),
-        password: form.get("password"),
-      }),
-    });
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: form.get("phone"),
+          password: form.get("password"),
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data.error) {
-      setMessage(data.error);
-      return;
+      if (!res.ok || data.error) {
+        setMessage(data.error || "Xatolik yuz berdi");
+        return;
+      }
+
+      localStorage.setItem("bk_user", JSON.stringify(data.user));
+      window.location.href = "/admin";
+    } catch {
+      setMessage("Serverga ulanishda xatolik. Qayta urinib ko'ring.");
+    } finally {
+      setLoading(false);
     }
-
-    localStorage.setItem("bk_user", JSON.stringify(data.user));
-    window.location.href = "/admin";
   }
 
   return (
@@ -43,7 +54,7 @@ const [showPassword, setShowPassword] = useState(false);
         <div className="mt-6 space-y-4">
           <input
             name="phone"
-            placeholder="Telefon yoki email"
+            placeholder="Telefon raqam"
             className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-blue-500"
           />
 
@@ -64,8 +75,11 @@ const [showPassword, setShowPassword] = useState(false);
   </button>
 </div>
 
-          <button className="w-full rounded-xl bg-slate-950 p-3 font-semibold text-white">
-            Kirish
+          <button
+            disabled={loading}
+            className="w-full rounded-xl bg-slate-950 p-3 font-semibold text-white disabled:opacity-60"
+          >
+            {loading ? "Yuklanmoqda..." : "Kirish"}
           </button>
         </div>
 <p className="mt-4 text-center text-sm text-slate-500">
