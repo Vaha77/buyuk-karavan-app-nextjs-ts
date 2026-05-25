@@ -20,11 +20,13 @@ export default function KategoriyaPage() {
   const [kategoriyalar, setKategoriyalar] = useState<Kategoriya[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showAssignForm, setShowAssignForm] = useState(false);
   const [deleteModal, setDeleteModal] = useState<Kategoriya | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("📦");
   const [parentId, setParentId] = useState<string>("");
+  const [selectedForAssign, setSelectedForAssign] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -91,6 +93,27 @@ export default function KategoriyaPage() {
     setDeleting(false);
     setDeleteModal(null);
     fetchData();
+  };
+
+  const handleAssignExisting = async () => {
+    if (!parentId.trim() || !selectedForAssign.trim()) return;
+    setSaving(true);
+    await fetch("/api/kategoriya", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: selectedForAssign, parentId }),
+    });
+    setSaving(false);
+    setShowAssignForm(false);
+    setParentId("");
+    setSelectedForAssign("");
+    fetchData();
+  };
+
+  const openAssignForm = () => {
+    setParentId("");
+    setSelectedForAssign("");
+    setShowAssignForm(true);
   };
 
   return (
@@ -165,12 +188,20 @@ export default function KategoriyaPage() {
             Mahsulot kategoriyalarini boshqaring
           </p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl font-semibold hover:bg-gray-700 transition"
-        >
-          + Yangi kategoriya
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={openAssignForm}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-blue-700 transition"
+          >
+            📌 Mavjud kategoriyani qo'shish
+          </button>
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl font-semibold hover:bg-gray-700 transition"
+          >
+            + Yangi kategoriya
+          </button>
+        </div>
       </div>
 
       {/* Form Modal */}
@@ -247,6 +278,71 @@ export default function KategoriyaPage() {
               </button>
               <button
                 onClick={() => setShowForm(false)}
+                className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold hover:bg-gray-200 transition"
+              >
+                Bekor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Existing Category Modal */}
+      {showAssignForm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-bold mb-4">Mavjud kategoriyani sub-kategoriya qiling</h2>
+
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
+                Ata kategoriya (parent)
+              </label>
+              <select
+                value={parentId}
+                onChange={(e) => setParentId(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400"
+              >
+                <option value="">— Tanlang —</option>
+                {kategoriyalar
+                  .filter((k) => !k.parentId)
+                  .map((k) => (
+                    <option key={k.id} value={k.id}>
+                      {k.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="mb-6">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
+                Qaysi kategoriyani qo'shish
+              </label>
+              <select
+                value={selectedForAssign}
+                onChange={(e) => setSelectedForAssign(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400"
+              >
+                <option value="">— Tanlang —</option>
+                {kategoriyalar
+                  .filter((k) => !k.parentId && k.id !== parentId)
+                  .map((k) => (
+                    <option key={k.id} value={k.id}>
+                      {k.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleAssignExisting}
+                disabled={saving || !parentId.trim() || !selectedForAssign.trim()}
+                className="flex-1 bg-blue-600 text-white rounded-xl py-3 font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+              >
+                {saving ? "Qo'shilmoqda..." : "Qo'shish"}
+              </button>
+              <button
+                onClick={() => setShowAssignForm(false)}
                 className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold hover:bg-gray-200 transition"
               >
                 Bekor
