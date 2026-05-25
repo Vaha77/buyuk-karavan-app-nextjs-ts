@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 
-type Kategoriya = { id: string; name: string; };
+type Kategoriya = { id: string; name: string; parentId?: string | null; children?: Kategoriya[]; };
 type Product = {
   id: string; name: string; category: string; tur: string;
   birlik: string; kgPerMetr: number; image: string; images: string[];
@@ -37,9 +37,15 @@ export default function ProductsPage() {
   const [kurs, setKurs] = useState<number>(0);
   const [kursDiff, setKursDiff] = useState<number | null>(null);
   const [sana, setSana] = useState("");
+  const [selectedMainCategory, setSelectedMainCategory] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const sotishKursi = kurs > 0 ? kurs : 0;
+
+  const mainCategories = kategoriyalar.filter(k => !k.parentId);
+  const subCategories = selectedMainCategory
+    ? kategoriyalar.find(k => k.id === selectedMainCategory)?.children || []
+    : [];
 
   useEffect(() => {
     loadProducts();
@@ -81,7 +87,11 @@ export default function ProductsPage() {
   });
 
   function openAddForm() {
-    setEditProduct(null); setForm(emptyForm); setMessage(""); setShowForm(true);
+    setEditProduct(null);
+    setForm(emptyForm);
+    setSelectedMainCategory("");
+    setMessage("");
+    setShowForm(true);
   }
 
   function openEditForm(p: Product) {
@@ -92,7 +102,16 @@ export default function ProductsPage() {
       image: p.image, images: p.images || [],
       shortDesc: p.shortDesc, fullDesc: p.fullDesc, priceUsd: String(p.priceUsd),
     });
-    setMessage(""); setShowForm(true);
+
+    const cat = kategoriyalar.find(k => k.name === p.category);
+    if (cat?.parentId) {
+      setSelectedMainCategory(cat.parentId);
+    } else {
+      setSelectedMainCategory(cat?.id || "");
+    }
+
+    setMessage("");
+    setShowForm(true);
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -145,13 +164,19 @@ export default function ProductsPage() {
     if (!newKatName.trim()) return;
     setSavingKat(true);
     const res = await fetch("/api/kategoriya", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newKatName }),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newKatName,
+        parentId: selectedMainCategory && selectedMainCategory !== "__new__" ? selectedMainCategory : null,
+      }),
     });
     const data = await res.json();
     await loadKategoriyalar();
     setForm((f) => ({ ...f, category: data.name }));
-    setNewKatName(""); setShowNewKat(false); setSavingKat(false);
+    setNewKatName("");
+    setShowNewKat(false);
+    setSavingKat(false);
   }
 
   async function handleSubmit() {
@@ -382,34 +407,76 @@ export default function ProductsPage() {
                 </div>
 
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Kategoriya</p>
-                  <select value={form.category}
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                    Asosiy kategoriya
+                  </p>
+                  <select value={selectedMainCategory}
                     onChange={(e) => {
-                      if (e.target.value === "__new__") setShowNewKat(true);
-                      else setForm((f) => ({ ...f, category: e.target.value }));
+                      if (e.target.value === "__new__") {
+                        setShowNewKat(true);
+                        setSelectedMainCategory("");
+                      } else {
+                        setSelectedMainCategory(e.target.value);
+                        setForm((f) => ({ ...f, category: "" }));
+                      }
                     }}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
                     <option value="">— Tanlang —</option>
-                    {kategoriyalar.map((k) => (
-                      <option key={k.id} value={k.name}>{k.name}</option>
+                    {mainCategories.map((k) => (
+                      <option key={k.id} value={k.id}>{k.name}</option>
                     ))}
                     <option value="__new__">＋ Yangi kategoriya</option>
                   </select>
-                  {showNewKat && (
-                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl flex gap-2">
-                      <input type="text" value={newKatName}
-                        onChange={(e) => setNewKatName(e.target.value)}
-                        placeholder="Kategoriya nomi..."
-                        className="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
-                        autoFocus onKeyDown={(e) => e.key === "Enter" && handleSaveKat()} />
-                      <button onClick={handleSaveKat} disabled={savingKat}
-                        className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-semibold">
-                        {savingKat ? "..." : "Saqlash"}
-                      </button>
-                      <button onClick={() => setShowNewKat(false)} className="text-gray-400 px-2">✕</button>
-                    </div>
-                  )}
                 </div>
+
+                {selectedMainCategory && selectedMainCategory !== "__new__" && subCategories.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                      Sub-kategoriya
+                    </p>
+                    <select value={form.category}
+                      onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+                      <option value="">— Tanlang —</option>
+                      {subCategories.map((k) => (
+                        <option key={k.id} value={k.name}>{k.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {selectedMainCategory && selectedMainCategory !== "__new__" && subCategories.length === 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                      Kategoriya
+                    </p>
+                    <select value={form.category}
+                      onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+                      <option value="">— Tanlang —</option>
+                      {mainCategories.find(k => k.id === selectedMainCategory) && (
+                        <option value={mainCategories.find(k => k.id === selectedMainCategory)!.name}>
+                          {mainCategories.find(k => k.id === selectedMainCategory)!.name}
+                        </option>
+                      )}
+                    </select>
+                  </div>
+                )}
+
+                {showNewKat && (
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl flex gap-2">
+                    <input type="text" value={newKatName}
+                      onChange={(e) => setNewKatName(e.target.value)}
+                      placeholder="Kategoriya nomi..."
+                      className="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
+                      autoFocus onKeyDown={(e) => e.key === "Enter" && handleSaveKat()} />
+                    <button onClick={handleSaveKat} disabled={savingKat}
+                      className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-semibold">
+                      {savingKat ? "..." : "Saqlash"}
+                    </button>
+                    <button onClick={() => setShowNewKat(false)} className="text-gray-400 px-2">✕</button>
+                  </div>
+                )}
 
                 {form.tur === "oddiy" && (
                   <div>

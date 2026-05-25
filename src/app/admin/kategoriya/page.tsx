@@ -7,6 +7,8 @@ interface Kategoriya {
   name: string;
   slug: string;
   icon: string;
+  parentId?: string | null;
+  children?: Kategoriya[];
   _count: { mahsulotlar: number };
 }
 
@@ -22,6 +24,7 @@ export default function KategoriyaPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("📦");
+  const [parentId, setParentId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -38,6 +41,7 @@ export default function KategoriyaPage() {
     setEditId(null);
     setName("");
     setIcon("📦");
+    setParentId("");
     setShowForm(true);
   };
 
@@ -45,6 +49,7 @@ export default function KategoriyaPage() {
     setEditId(k.id);
     setName(k.name);
     setIcon(k.icon || "📦");
+    setParentId(k.parentId || "");
     setShowForm(true);
   };
 
@@ -55,13 +60,13 @@ export default function KategoriyaPage() {
       await fetch("/api/kategoriya", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editId, name, icon }),
+        body: JSON.stringify({ id: editId, name, icon, parentId: parentId || null }),
       });
     } else {
       await fetch("/api/kategoriya", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, icon }),
+        body: JSON.stringify({ name, icon, parentId: parentId || null }),
       });
     }
     setSaving(false);
@@ -71,7 +76,9 @@ export default function KategoriyaPage() {
 
   const handleDelete = async () => {
     if (!deleteModal) return;
-    if (deleteModal._count.mahsulotlar > 0) {
+    const hasProducts = deleteModal._count.mahsulotlar > 0;
+    const hasChildren = deleteModal.children && deleteModal.children.length > 0;
+    if (hasProducts || hasChildren) {
       setDeleteModal(null);
       return;
     }
@@ -96,15 +103,20 @@ export default function KategoriyaPage() {
             <div className="flex items-center justify-center w-12 h-12 bg-red-50 rounded-full mx-auto mb-4">
               <span className="text-2xl">🗑️</span>
             </div>
-            {deleteModal._count.mahsulotlar > 0 ? (
+            {deleteModal._count.mahsulotlar > 0 || (deleteModal.children && deleteModal.children.length > 0) ? (
               <>
                 <h3 className="text-base font-bold text-gray-900 text-center mb-2">
                   O'chirib bo'lmaydi!
                 </h3>
                 <p className="text-sm text-gray-500 text-center mb-6">
                   <span className="font-semibold text-gray-700">{deleteModal.name}</span> kategoriyasida{" "}
-                  <span className="font-bold text-red-500">{deleteModal._count.mahsulotlar} ta mahsulot</span> bor.
-                  Avval mahsulotlarni o'chiring!
+                  {deleteModal._count.mahsulotlar > 0 && (
+                    <span><span className="font-bold text-red-500">{deleteModal._count.mahsulotlar} ta mahsulot</span> bor. </span>
+                  )}
+                  {deleteModal.children && deleteModal.children.length > 0 && (
+                    <span><span className="font-bold text-red-500">{deleteModal.children.length} ta sub-kategoriya</span> bor. </span>
+                  )}
+                  Avval o'chirib tashlang!
                 </p>
                 <button
                   onClick={() => setDeleteModal(null)}
@@ -190,6 +202,26 @@ export default function KategoriyaPage() {
               </div>
             </div>
 
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
+                Ata kategoriya (ixtiyoriy)
+              </label>
+              <select
+                value={parentId}
+                onChange={(e) => setParentId(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400"
+              >
+                <option value="">— Asosiy kategoriya —</option>
+                {kategoriyalar
+                  .filter((k) => !k.parentId && k.id !== editId)
+                  .map((k) => (
+                    <option key={k.id} value={k.id}>
+                      {k.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
             <div className="mb-6">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
                 Kategoriya nomi
@@ -239,45 +271,94 @@ export default function KategoriyaPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {kategoriyalar.map((k) => (
-            <div
-              key={k.id}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">{k.icon || "📦"}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-gray-900 truncate">{k.name}</div>
-                  <div className="text-xs text-gray-400">{k.slug}</div>
-                </div>
-              </div>
+        <div className="space-y-2">
+          {kategoriyalar
+            .filter((k) => !k.parentId)
+            .map((mainCat) => (
+              <div key={mainCat.id}>
+                {/* Main category */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">{mainCat.icon || "📦"}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-gray-900 truncate">{mainCat.name}</div>
+                      <div className="text-xs text-gray-400">{mainCat.slug}</div>
+                    </div>
+                  </div>
 
-              <div className="flex items-center justify-between">
-                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                  k._count.mahsulotlar > 0
-                    ? "bg-blue-50 text-blue-600"
-                    : "bg-gray-100 text-gray-400"
-                }`}>
-                  {k._count.mahsulotlar} mahsulot
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openEdit(k)}
-                    className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
-                  >
-                    ✏️ Tahrir
-                  </button>
-                  <button
-                    onClick={() => setDeleteModal(k)}
-                    className="text-xs px-3 py-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition font-medium"
-                  >
-                    🗑️ O'chir
-                  </button>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                      mainCat._count.mahsulotlar > 0
+                        ? "bg-blue-50 text-blue-600"
+                        : "bg-gray-100 text-gray-400"
+                    }`}>
+                      {mainCat._count.mahsulotlar} mahsulot
+                      {mainCat.children && mainCat.children.length > 0 && (
+                        <span className="ml-1">· {mainCat.children.length} sub-kategoriya</span>
+                      )}
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openEdit(mainCat)}
+                        className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+                      >
+                        ✏️ Tahrir
+                      </button>
+                      <button
+                        onClick={() => setDeleteModal(mainCat)}
+                        className="text-xs px-3 py-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition font-medium"
+                      >
+                        🗑️ O'chir
+                      </button>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Sub-categories */}
+                {mainCat.children && mainCat.children.length > 0 && (
+                  <div className="ml-6 space-y-2 mt-2">
+                    {mainCat.children.map((subCat) => (
+                      <div
+                        key={subCat.id}
+                        className="bg-gray-50 rounded-lg border border-gray-100 p-4 flex flex-col gap-2 hover:shadow-sm transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{subCat.icon || "📦"}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-gray-800 truncate">{subCat.name}</div>
+                            <div className="text-xs text-gray-400">{subCat.slug}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                            subCat._count.mahsulotlar > 0
+                              ? "bg-blue-50 text-blue-600"
+                              : "bg-gray-100 text-gray-400"
+                          }`}>
+                            {subCat._count.mahsulotlar} mahsulot
+                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => openEdit(subCat)}
+                              className="text-xs px-2.5 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition font-medium"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => setDeleteModal(subCat)}
+                              className="text-xs px-2.5 py-1 bg-red-100 text-red-500 rounded hover:bg-red-200 transition font-medium"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       )}
     </div>

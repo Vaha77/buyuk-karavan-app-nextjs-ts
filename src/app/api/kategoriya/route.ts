@@ -10,8 +10,11 @@ function slugify(text: string) {
 
 export async function GET() {
   const kategoriyalar = await prisma.kategoriya.findMany({
+    include: {
+      children: { orderBy: { createdAt: "asc" } },
+      _count: { select: { mahsulotlar: true } },
+    },
     orderBy: { createdAt: "asc" },
-    include: { _count: { select: { mahsulotlar: true } } },
   });
 
   const products = await prisma.product.findMany({
@@ -36,6 +39,7 @@ export async function POST(req: Request) {
       name: String(body.name),
       slug,
       icon: body.icon || "📦",
+      parentId: body.parentId || null,
     },
   });
   return Response.json(kategoriya);
@@ -44,7 +48,6 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   const body = await req.json();
 
-  // Avval eski nomni olamiz
   const old = await prisma.kategoriya.findUnique({
     where: { id: body.id },
     select: { name: true },
@@ -52,17 +55,16 @@ export async function PUT(req: Request) {
 
   const slug = slugify(body.name);
 
-  // Kategoriya nomini yangilaymiz
   const kategoriya = await prisma.kategoriya.update({
     where: { id: body.id },
     data: {
       name: String(body.name),
       slug,
       icon: body.icon,
+      parentId: body.parentId || null,
     },
   });
 
-  // Product tablidagi eski nomlarni ham yangi nom bilan almashtiramiz
   if (old && old.name !== body.name) {
     await prisma.product.updateMany({
       where: { category: old.name },
