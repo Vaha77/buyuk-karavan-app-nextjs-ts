@@ -35,12 +35,11 @@ export default function ProductsPage() {
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [kurs, setKurs] = useState<number>(0);
-  const [kechakiKurs, setKechakiKurs] = useState<number>(0);
+  const [kursDiff, setKursDiff] = useState<number | null>(null);
   const [sana, setSana] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const sotishKursi = kurs > 0 ? kurs : 0;
-  const kursOzgarish = kurs > 0 && kechakiKurs > 0 ? kurs - kechakiKurs : 0;
 
   useEffect(() => {
     loadProducts();
@@ -49,7 +48,7 @@ export default function ProductsPage() {
       .then((r) => r.json())
       .then((data) => {
         if (data?.[0]?.Rate) setKurs(Number(data[0].Rate));
-        if (data?.[1]?.Rate) setKechakiKurs(Number(data[1].Rate));
+        if (data?.[0]?.Diff !== undefined) setKursDiff(Number(data[0].Diff));
       })
       .catch(() => {});
     const interval = setInterval(() => {
@@ -241,11 +240,11 @@ export default function ProductsPage() {
                   <p className="text-xs text-gray-500">
                     <span className="font-bold text-gray-800">{sotishKursi.toLocaleString()} so'm</span>
                   </p>
-                  {kechakiKurs > 0 && (
+                  {kursDiff !== null && (
                     <span className={`text-xs font-bold flex items-center gap-0.5 ${
-                      kursOzgarish >= 0 ? "text-blue-500" : "text-red-500"
+                      kursDiff >= 0 ? "text-green-500" : "text-red-500"
                     }`}>
-                      {kursOzgarish >= 0 ? (
+                      {kursDiff >= 0 ? (
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
                           <path d="M6 1L11 8H1L6 1Z"/>
                         </svg>
@@ -254,7 +253,7 @@ export default function ProductsPage() {
                           <path d="M6 11L1 4H11L6 11Z"/>
                         </svg>
                       )}
-                      {Math.abs(kursOzgarish).toFixed(1)}
+                      {Math.abs(kursDiff).toFixed(2)}
                     </span>
                   )}
                 </div>
