@@ -26,7 +26,7 @@ export default function KategoriyaPage() {
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("📦");
   const [parentId, setParentId] = useState<string>("");
-  const [selectedForAssign, setSelectedForAssign] = useState<string>("");
+  const [selectedForAssign, setSelectedForAssign] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -96,24 +96,32 @@ export default function KategoriyaPage() {
   };
 
   const handleAssignExisting = async () => {
-    if (!parentId.trim() || !selectedForAssign.trim()) return;
+    if (!parentId.trim() || selectedForAssign.length === 0) return;
     setSaving(true);
-    await fetch("/api/kategoriya", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: selectedForAssign, parentId }),
-    });
+    for (const katId of selectedForAssign) {
+      await fetch("/api/kategoriya", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: katId, parentId }),
+      });
+    }
     setSaving(false);
     setShowAssignForm(false);
     setParentId("");
-    setSelectedForAssign("");
+    setSelectedForAssign([]);
     fetchData();
   };
 
   const openAssignForm = () => {
     setParentId("");
-    setSelectedForAssign("");
+    setSelectedForAssign([]);
     setShowAssignForm(true);
+  };
+
+  const toggleCategorySelect = (katId: string) => {
+    setSelectedForAssign(prev =>
+      prev.includes(katId) ? prev.filter(id => id !== katId) : [...prev, katId]
+    );
   };
 
   return (
@@ -314,32 +322,33 @@ export default function KategoriyaPage() {
             </div>
 
             <div className="mb-6">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
-                Qaysi kategoriyani qo'shish
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">
+                Sub-kategoriyalar (ko'pchta tanlash mumkin)
               </label>
-              <select
-                value={selectedForAssign}
-                onChange={(e) => setSelectedForAssign(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400"
-              >
-                <option value="">— Tanlang —</option>
+              <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-xl p-3">
                 {kategoriyalar
                   .filter((k) => !k.parentId && k.id !== parentId)
                   .map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {k.name}
-                    </option>
+                    <label key={k.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedForAssign.includes(k.id)}
+                        onChange={() => toggleCategorySelect(k.id)}
+                        className="w-4 h-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm">{k.icon} {k.name}</span>
+                    </label>
                   ))}
-              </select>
+              </div>
             </div>
 
             <div className="flex gap-3">
               <button
                 onClick={handleAssignExisting}
-                disabled={saving || !parentId.trim() || !selectedForAssign.trim()}
+                disabled={saving || !parentId.trim() || selectedForAssign.length === 0}
                 className="flex-1 bg-blue-600 text-white rounded-xl py-3 font-semibold hover:bg-blue-700 transition disabled:opacity-50"
               >
-                {saving ? "Qo'shilmoqda..." : "Qo'shish"}
+                {saving ? "Qo'shilmoqda..." : `Qo'shish (${selectedForAssign.length})`}
               </button>
               <button
                 onClick={() => setShowAssignForm(false)}
