@@ -9,26 +9,30 @@ function slugify(text: string) {
 }
 
 export async function GET() {
-  const kategoriyalar = await prisma.kategoriya.findMany({
-    include: {
-      children: { orderBy: { createdAt: "asc" } },
-      _count: { select: { mahsulotlar: true } },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  try {
+    const kategoriyalar = await prisma.kategoriya.findMany({
+      include: {
+        children: { orderBy: { createdAt: "asc" } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
 
-  const products = await prisma.product.findMany({
-    select: { category: true },
-  });
+    const products = await prisma.product.findMany({
+      select: { category: true },
+    });
 
-  const result = kategoriyalar.map((k) => ({
-    ...k,
-    _count: {
-      mahsulotlar: products.filter((p) => p.category === k.name).length,
-    },
-  }));
+    const result = kategoriyalar.map((k) => ({
+      ...k,
+      _count: {
+        mahsulotlar: products.filter((p) => p.category === k.name).length,
+      },
+    }));
 
-  return Response.json(result);
+    return Response.json(result);
+  } catch (error) {
+    console.error("Kategoriya GET error:", error);
+    return Response.json({ error: "Failed to fetch categories" }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
