@@ -44,7 +44,7 @@ export default function ProductsPage() {
 
   const mainCategories = kategoriyalar.filter(k => !k.parentId);
   const subCategories = selectedMainCategory
-    ? kategoriyalar.find(k => k.id === selectedMainCategory)?.children || []
+    ? kategoriyalar.filter(k => k.parentId === selectedMainCategory)
     : [];
 
   useEffect(() => {
