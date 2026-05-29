@@ -338,19 +338,6 @@ export default function ProductsPage() {
             </div>
 
             <div className="overflow-y-auto flex-1">
-              <div className="px-4 pt-4 pb-3">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Mahsulot turi</p>
-                <div className="flex gap-2">
-                  {["oddiy", "komplekt"].map((t) => (
-                    <button key={t} onClick={() => setForm((f) => ({ ...f, tur: t }))}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${
-                        form.tur === t ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
-                      }`}>
-                      {t === "oddiy" ? "Oddiy mahsulot" : "Komplekt"}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               <div className="relative mx-4 rounded-2xl overflow-hidden cursor-pointer"
                 style={{ height: 180, background: "linear-gradient(135deg, #e8ede9, #dde8de)" }}
@@ -478,24 +465,22 @@ export default function ProductsPage() {
                   </div>
                 )}
 
-                {form.tur === "oddiy" && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Birlik</p>
-                    <div className="flex gap-2">
-                      {[{ val: "dona", label: "Dona" }, { val: "kg", label: "Kg" }, { val: "metr", label: "Metr" }].map((b) => (
-                        <button key={b.val}
-                          onClick={() => setForm((f) => ({ ...f, birlik: b.val, kgPerMetr: "" }))}
-                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${
-                            form.birlik === b.val ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
-                          }`}>
-                          {b.label}
-                        </button>
-                      ))}
-                    </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Birlik</p>
+                  <div className="flex gap-2">
+                    {[{ val: "dona", label: "Dona" }, { val: "kg", label: "Kg" }, { val: "metr", label: "Metr" }].map((b) => (
+                      <button key={b.val}
+                        onClick={() => setForm((f) => ({ ...f, birlik: b.val, kgPerMetr: "" }))}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${
+                          form.birlik === b.val ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
+                        }`}>
+                        {b.label}
+                      </button>
+                    ))}
                   </div>
-                )}
+                </div>
 
-                {form.birlik === "kg" && form.tur === "oddiy" && (
+                {form.birlik === "kg" && (
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
                     <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">1 metrda og'irligi</p>
                     <div className="flex items-center gap-2">
