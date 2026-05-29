@@ -29,6 +29,7 @@ export default function KategoriyaPage() {
   const [selectedForAssign, setSelectedForAssign] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [selectedAddSubCategories, setSelectedAddSubCategories] = useState<string[]>([]);
 
   const fetchData = async () => {
     const res = await fetch("/api/kategoriya");
@@ -44,6 +45,7 @@ export default function KategoriyaPage() {
     setName("");
     setIcon("📦");
     setParentId("");
+    setSelectedAddSubCategories([]);
     setShowForm(true);
   };
 
@@ -52,6 +54,7 @@ export default function KategoriyaPage() {
     setName(k.name);
     setIcon(k.icon || "📦");
     setParentId(k.parentId || "");
+    setSelectedAddSubCategories([]);
     setShowForm(true);
   };
 
@@ -64,6 +67,14 @@ export default function KategoriyaPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: editId, name, icon, parentId: parentId || null }),
       });
+      // Add selected sub-categories if any
+      for (const katId of selectedAddSubCategories) {
+        await fetch("/api/kategoriya", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: katId, parentId: editId }),
+        });
+      }
     } else {
       await fetch("/api/kategoriya", {
         method: "POST",
@@ -122,6 +133,24 @@ export default function KategoriyaPage() {
     setSelectedForAssign(prev =>
       prev.includes(katId) ? prev.filter(id => id !== katId) : [...prev, katId]
     );
+  };
+
+  const toggleAddSubCategory = (katId: string) => {
+    setSelectedAddSubCategories(prev =>
+      prev.includes(katId) ? prev.filter(id => id !== katId) : [...prev, katId]
+    );
+  };
+
+  const handleRemoveSubCategory = async (subCatId: string) => {
+    if (!editId) return;
+    setSaving(true);
+    await fetch("/api/kategoriya", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: subCatId, parentId: null }),
+    });
+    setSaving(false);
+    fetchData();
   };
 
   return (
@@ -215,7 +244,7 @@ export default function KategoriyaPage() {
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold mb-4">
               {editId ? "Kategoriyani tahrirlash" : "Yangi kategoriya"}
             </h2>
@@ -275,6 +304,53 @@ export default function KategoriyaPage() {
                 autoFocus
               />
             </div>
+
+            {/* Current Sub-categories Section (when editing a parent category) */}
+            {editId && kategoriyalar.find(k => k.id === editId)?.children && kategoriyalar.find(k => k.id === editId)!.children!.length > 0 && (
+              <div className="mb-6 pb-6 border-b border-gray-200">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">
+                  Mavjud sub-kategoriyalar ({kategoriyalar.find(k => k.id === editId)!.children!.length})
+                </label>
+                <div className="space-y-2">
+                  {kategoriyalar.find(k => k.id === editId)?.children?.map((subCat) => (
+                    <div key={subCat.id} className="flex items-center justify-between bg-red-50 p-3 rounded-lg">
+                      <span className="text-sm text-gray-700">{subCat.icon} {subCat.name}</span>
+                      <button
+                        onClick={() => handleRemoveSubCategory(subCat.id)}
+                        disabled={saving}
+                        className="text-xs px-2 py-1 bg-red-200 text-red-600 rounded hover:bg-red-300 transition font-medium disabled:opacity-50"
+                      >
+                        ✕ O'chir
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add Sub-categories Section (when editing a parent category) */}
+            {editId && !kategoriyalar.find(k => k.id === editId)?.parentId && (
+              <div className="mb-6 pb-6 border-b border-gray-200">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">
+                  Sub-kategoriya qo'shish
+                </label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-xl p-3">
+                  {kategoriyalar
+                    .filter((k) => !k.parentId && k.id !== editId)
+                    .map((k) => (
+                      <label key={k.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                        <input
+                          type="checkbox"
+                          checked={selectedAddSubCategories.includes(k.id)}
+                          onChange={() => toggleAddSubCategory(k.id)}
+                          className="w-4 h-4 rounded border-gray-300"
+                        />
+                        <span className="text-sm">{k.icon} {k.name}</span>
+                      </label>
+                    ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button
@@ -392,16 +468,20 @@ export default function KategoriyaPage() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                      mainCat._count.mahsulotlar > 0
-                        ? "bg-blue-50 text-blue-600"
-                        : "bg-gray-100 text-gray-400"
-                    }`}>
-                      {mainCat._count.mahsulotlar} mahsulot
+                    <div className="flex gap-3 flex-wrap">
+                      <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                        mainCat._count.mahsulotlar > 0
+                          ? "bg-blue-50 text-blue-600"
+                          : "bg-gray-100 text-gray-400"
+                      }`}>
+                        📦 {mainCat._count.mahsulotlar} mahsulot
+                      </span>
                       {mainCat.children && mainCat.children.length > 0 && (
-                        <span className="ml-1">· {mainCat.children.length} sub-kategoriya</span>
+                        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-purple-50 text-purple-600">
+                          📂 {mainCat.children.length} sub-kategoriya
+                        </span>
                       )}
-                    </span>
+                    </div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => openEdit(mainCat)}
